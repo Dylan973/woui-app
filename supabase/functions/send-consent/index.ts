@@ -25,9 +25,29 @@ interface SendConsentPayload {
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://woui-app.vercel.app'
 const RESEND_FROM = Deno.env.get('RESEND_FROM') ?? 'Woui <no-reply@woui.fr>'
 
+// L'app appelle cette fonction directement depuis le navigateur (supabase.functions.invoke) :
+// sans ces en-têtes, le préflight CORS échoue et le fetch est bloqué côté client
+// avant même d'atteindre la fonction.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  })
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Méthode non autorisée' }), { status: 405 })
+    return json({ error: 'Méthode non autorisée' }, 405)
   }
 
   try {
@@ -35,7 +55,7 @@ Deno.serve(async (req: Request) => {
     const { patientEmail, patientName, procedure, token } = payload
 
     if (!patientEmail || !token) {
-      return new Response(JSON.stringify({ error: 'Champs requis manquants' }), { status: 400 })
+      return json({ error: 'Champs requis manquants' }, 400)
     }
 
     const signLink = `${APP_URL}/sign/${token}`
@@ -58,9 +78,7 @@ Deno.serve(async (req: Request) => {
 
     if (!resendApiKey) {
       console.warn('RESEND_API_KEY non configuré — email non envoyé.')
-      return new Response(JSON.stringify({ success: false, warning: 'RESEND_API_KEY non configuré, email non envoyé.' }), {
-        status: 200,
-      })
+      return json({ success: false, warning: 'RESEND_API_KEY non configuré, email non envoyé.' })
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -80,18 +98,15 @@ Deno.serve(async (req: Request) => {
     if (!resendResponse.ok) {
       const errorBody = await resendResponse.text()
       console.error('Resend error:', errorBody)
-      return new Response(JSON.stringify({ success: false, error: errorBody }), { status: 502 })
+      return json({ success: false, error: errorBody }, 502)
     }
 
     // Optionnel : trace d'audit via le client Supabase (service_role) si besoin plus tard.
     void createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return json({ success: true })
   } catch (error) {
     console.error('send-consent error:', error)
-    return new Response(JSON.stringify({ success: false, error: String(error) }), { status: 500 })
+    return json({ success: false, error: String(error) }, 500)
   }
 })
