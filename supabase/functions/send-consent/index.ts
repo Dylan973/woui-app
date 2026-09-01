@@ -6,16 +6,12 @@
 // ⚠️ Cette fonction tourne côté serveur (Deno, runtime Supabase Edge Functions).
 // C'est ICI, et uniquement ici, que la SUPABASE_SERVICE_ROLE_KEY peut être utilisée.
 //
-// Envoi d'email : conformément au brief, pas de service tiers (Resend, etc.).
-// On utilise un client SMTP simple (denomailer) branché sur le même SMTP que
-// celui configuré dans Supabase Dashboard → Project Settings → Auth → SMTP Settings.
-// Variables d'env à définir via `supabase secrets set` :
-//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
-//
-// Déploiement : supabase functions deploy send-consent
+// Envoi d'email : via Resend (secret RESEND_API_KEY déjà configuré sur ce projet
+// depuis une itération précédente — on le réutilise plutôt que d'ajouter un
+// second système d'envoi).
+// Variables d'env (déjà présentes) : RESEND_API_KEY, APP_URL
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 interface SendConsentPayload {
   consentId: string
@@ -26,7 +22,8 @@ interface SendConsentPayload {
   doctorName?: string
 }
 
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.woui.fr'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://woui-app.vercel.app'
+const RESEND_FROM = Deno.env.get('RESEND_FROM') ?? 'Woui <no-reply@woui.fr>'
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
@@ -57,32 +54,34 @@ Deno.serve(async (req: Request) => {
       </div>
     `
 
-    const smtpHost = Deno.env.get('SMTP_HOST')
-    const smtpUser = Deno.env.get('SMTP_USER')
-    const smtpPass = Deno.env.get('SMTP_PASS')
-    const smtpFrom = Deno.env.get('SMTP_FROM') ?? 'no-reply@woui.fr'
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
 
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      console.warn('SMTP non configuré — email non envoyé. Configurez SMTP_HOST/SMTP_USER/SMTP_PASS via `supabase secrets set`.')
-      return new Response(JSON.stringify({ success: false, warning: 'SMTP non configuré, email non envoyé.' }), { status: 200 })
+    if (!resendApiKey) {
+      console.warn('RESEND_API_KEY non configuré — email non envoyé.')
+      return new Response(JSON.stringify({ success: false, warning: 'RESEND_API_KEY non configuré, email non envoyé.' }), {
+        status: 200,
+      })
     }
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: smtpHost,
-        port: Number(Deno.env.get('SMTP_PORT') ?? 587),
-        tls: true,
-        auth: { username: smtpUser, password: smtpPass },
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        from: RESEND_FROM,
+        to: [patientEmail],
+        subject,
+        html,
+      }),
     })
 
-    await client.send({
-      from: smtpFrom,
-      to: patientEmail,
-      subject,
-      html,
-    })
-    await client.close()
+    if (!resendResponse.ok) {
+      const errorBody = await resendResponse.text()
+      console.error('Resend error:', errorBody)
+      return new Response(JSON.stringify({ success: false, error: errorBody }), { status: 502 })
+    }
 
     // Optionnel : trace d'audit via le client Supabase (service_role) si besoin plus tard.
     void createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')

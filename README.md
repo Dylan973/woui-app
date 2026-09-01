@@ -30,24 +30,24 @@ npm run dev
 2. **Auth** : créer les comptes praticiens dans Dashboard → Authentication → Users
    (ou via le flux SureCart, à automatiser plus tard — cf. webhook ci-dessous),
    puis insérer la ligne `doctors` correspondante avec le même `user_id`.
-3. **Edge Functions** (nécessite le [Supabase CLI](https://supabase.com/docs/guides/cli)) :
+3. **Edge Functions** (nécessite le [Supabase CLI](https://supabase.com/docs/guides/cli)) — déjà déployées sur
+   `kflyeygbwirqhbsirncg`, pour référence future :
    ```bash
-   supabase login
+   supabase login --token <votre access token, https://supabase.com/dashboard/account/tokens>
    supabase link --project-ref kflyeygbwirqhbsirncg
-
-   # Secrets pour l'envoi d'email (SMTP — voir Project Settings → Auth → SMTP Settings)
-   supabase secrets set SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASS=... SMTP_FROM=no-reply@woui.fr APP_URL=https://app.woui.fr
    supabase functions deploy send-consent
-
-   # Secret pour vérifier la signature des webhooks SureCart
-   supabase secrets set SURECART_WEBHOOK_SECRET=...
    supabase functions deploy surecart-webhook --no-verify-jwt
    ```
+   `send-consent` envoie l'email via **Resend** (secret `RESEND_API_KEY`, déjà configuré sur ce projet
+   depuis une itération précédente — on le réutilise plutôt que d'ajouter un second système d'envoi).
+   Le secret `APP_URL` existait aussi déjà (pointant vers l'app en prod) et sert à construire le lien
+   `/sign/:token` dans l'email.
+
    ⚠️ `surecart-webhook/index.ts` est une implémentation de référence — son code source
    original n'était pas présent dans les fichiers fournis. Avant la prod, vérifiez dans
-   SureCart → Developers → Webhooks le nom exact de l'en-tête de signature et complétez
-   `PRICE_TO_PLAN` avec vos vrais IDs de prix.
-4. Configurer l'URL du webhook dans SureCart : `https://<project-ref>.supabase.co/functions/v1/surecart-webhook`.
+   SureCart → Developers → Webhooks le nom exact de l'en-tête de signature, ajoutez le secret
+   `SURECART_WEBHOOK_SECRET`, et complétez `PRICE_TO_PLAN` avec vos vrais IDs de prix.
+4. Configurer l'URL du webhook dans SureCart : `https://kflyeygbwirqhbsirncg.supabase.co/functions/v1/surecart-webhook`.
 
 ## Déployer sur Vercel
 

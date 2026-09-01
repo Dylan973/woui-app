@@ -1,5 +1,10 @@
 -- Woui — schéma initial (doctors + consents)
 -- À exécuter dans Supabase Dashboard → SQL Editor, ou via `supabase db push`.
+--
+-- NOTE : ce schéma est déjà en place sur le projet kflyeygbwirqhbsirncg depuis le
+-- 2026-05-18. Toutes les instructions ci-dessous sont idempotentes (IF NOT EXISTS /
+-- DROP POLICY IF EXISTS) donc sûres à ré-exécuter. Pour un correctif ultérieur
+-- (policies patient manquantes), voir 0002_patient_access_policies.sql.
 
 create extension if not exists pgcrypto;
 
@@ -80,4 +85,13 @@ create index if not exists idx_doctors_user_id on public.doctors(user_id);
 -- ─── realtime ───────────────────────────────────────────────────────────────
 -- Nécessaire pour que useConsents() reçoive les changements de statut en direct
 -- (patient qui ouvre/visionne/signe). À activer aussi via Dashboard → Database → Replication.
-alter publication supabase_realtime add table public.consents;
+-- Bloc idempotent : ALTER PUBLICATION ... ADD TABLE n'accepte pas IF NOT EXISTS.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'consents'
+  ) then
+    alter publication supabase_realtime add table public.consents;
+  end if;
+end $$;
