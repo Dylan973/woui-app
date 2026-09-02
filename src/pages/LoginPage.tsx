@@ -42,17 +42,19 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6" style={{ background: '#050a14' }}>
+    <div className="flex min-h-screen items-center justify-center p-6" style={{ background: 'var(--surface-page)' }}>
       <div
-        className="w-full max-w-[400px] rounded-[20px] p-8"
-        style={{ background: '#0f172a', border: '1px solid #1e293b' }}
+        className="w-full max-w-[420px] p-[clamp(1.75rem,5vw,48px)]"
+        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, boxShadow: 'var(--shadow-md)' }}
       >
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <img src={WOUI_LOGO_URL} alt="Woui" className="h-12 w-12 rounded-xl" />
-          <h1 className="font-display text-[1.5rem]" style={{ color: '#f1f5f9' }}>
+        <div className="mb-9 flex flex-col items-center gap-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[3px] p-[7px]" style={{ background: 'var(--action-accent)' }}>
+            <img src={WOUI_LOGO_URL} alt="Woui" className="h-full w-full object-contain" />
+          </div>
+          <h1 className="font-display text-[1.75rem]" style={{ color: 'var(--text-primary)' }}>
             Espace praticien
           </h1>
-          <p className="text-[0.82rem]" style={{ color: '#64748b' }}>
+          <p className="text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
             Connectez-vous pour gérer vos consentements
           </p>
         </div>
@@ -78,25 +80,31 @@ export function LoginPage() {
           />
 
           {error && (
-            <div className="mb-4 rounded-lg p-3 text-[0.8rem]" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.18)' }}>
+            <div
+              className="mb-4 p-3 text-[0.875rem]"
+              style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+            >
               {error}
             </div>
           )}
           {resetSent && (
-            <div className="mb-4 rounded-lg p-3 text-[0.8rem]" style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.18)' }}>
+            <div
+              className="mb-4 p-3 text-[0.875rem]"
+              style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: 'var(--green-700)', borderRadius: 3 }}
+            >
               Email de réinitialisation envoyé, vérifiez votre boîte de réception.
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="mt-2 w-full justify-center">
+          <Button type="submit" variant="accent" disabled={loading} className="mt-2 w-full justify-center py-[14px] text-[1rem]">
             {loading ? 'Connexion...' : 'Se connecter'}
           </Button>
         </form>
 
         <button
           onClick={handleForgotPassword}
-          className="mt-4 w-full cursor-pointer bg-transparent text-center text-[0.8rem]"
-          style={{ color: '#64748b', border: 'none' }}
+          className="mt-4 w-full cursor-pointer text-center text-[13px]"
+          style={{ background: 'none', border: 'none', color: 'var(--text-accent)' }}
         >
           Mot de passe oublié ?
         </button>

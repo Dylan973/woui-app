@@ -1,40 +1,151 @@
+/* Refonte design (Claude Design) — éditorial, chaud, garnet/stone/navy. */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Dark theme (default) */
-  --bg-main: #050a14;
-  --bg-sidebar: #070d1a;
-  --bg-card: #0f172a;
-  --bg-input: #0a1120;
-  --border-color: #1e293b;
-  --border-light: #0d1a2d;
-  --text-main: #e2e8f0;
-  --text-muted: #64748b;
-  --text-dark: #334155;
-  --hover-bg: rgba(14, 165, 233, 0.1);
-  --accent: #0ea5e9;
-  --accent-light: #38bdf8;
+  /* Neutrals — stone beige chaud */
+  --stone-0: #ffffff;
+  --stone-50: #faf8f5;
+  --stone-100: #f2efe9;
+  --stone-200: #e6e1d8;
+  --stone-300: #d2ccc0;
+  --stone-400: #a9a196;
+  --stone-500: #7e7669;
+  --stone-600: #5c554b;
+  --stone-700: #3f3a33;
+  --stone-800: #2a2621;
+
+  /* Navy — bleu nuit profond */
+  --navy-900: #10151d;
+  --navy-800: #161d28;
+  --navy-700: #1e2735;
+  --navy-600: #2b3648;
+  --navy-500: #445267;
+
+  /* Garnet — rouge bordeaux médical */
+  --garnet-700: #7c1319;
+  --garnet-600: #9c1a20;
+  --garnet-500: #b8232a;
+  --garnet-400: #cf3a3f;
+  --garnet-100: #f6e3e3;
+
+  /* Statuts (badges) */
+  --amber-50: #fffbeb;
+  --amber-500: #f59e0b;
+  --amber-700: #92400e;
+  --blue-50: #eff6ff;
+  --blue-500: #3b82f6;
+  --blue-700: #1d4ed8;
+  --green-50: #f0fdf4;
+  --green-500: #22c55e;
+  --green-700: #15803d;
+
+  /* Surfaces — thème clair par défaut */
+  --surface-page: var(--stone-50);
+  --surface-card: var(--stone-0);
+  --surface-card-alt: var(--stone-100);
+  --surface-inverse: var(--navy-900);
+  --surface-inverse-alt: var(--navy-800);
+  --surface-overlay: rgba(16, 21, 29, 0.62);
+
+  /* Text */
+  --text-primary: var(--navy-900);
+  --text-secondary: var(--stone-600);
+  --text-muted: var(--stone-500);
+  --text-inverse: var(--stone-50);
+  --text-inverse-muted: rgba(250, 248, 245, 0.64);
+  --text-accent: var(--garnet-600);
+
+  /* Borders */
+  --border-subtle: var(--stone-200);
+  --border-default: var(--stone-300);
+  --border-inverse: rgba(250, 248, 245, 0.16);
+  --border-accent: var(--garnet-500);
+
+  /* Actions */
+  --action-primary: var(--navy-900);
+  --action-primary-hover: var(--navy-700);
+  --action-primary-text: var(--stone-50);
+  --action-accent: var(--garnet-600);
+  --action-accent-hover: var(--garnet-700);
+  --action-accent-text: var(--stone-50);
+
+  /* Focus */
+  --focus-ring: var(--garnet-500);
+
+  /* Typography */
+  --font-display: 'Newsreader', 'Georgia', serif;
+  --font-body: 'Manrope', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* Type scale */
+  --text-display-2: 400 clamp(2.25rem, 1.8rem + 2vw, 3.5rem) / 1.08 var(--font-display);
+  --text-display-3: 400 clamp(1.75rem, 1.5rem + 1vw, 2.5rem) / 1.15 var(--font-display);
+  --text-stat: 400 clamp(2.5rem, 2rem + 2vw, 4rem) / 1 var(--font-display);
+  --text-eyebrow: 600 0.8125rem / 1.2 var(--font-body);
+  --text-body: 400 1.0625rem / 1.6 var(--font-body);
+  --text-sm: 400 0.9375rem / 1.5 var(--font-body);
+  --text-xs: 500 0.8125rem / 1.4 var(--font-body);
+  --tracking-eyebrow: 0.14em;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-sm: 2px;
+  --radius-md: 4px; /* cartes, boutons, inputs */
+  --radius-lg: 6px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(16, 21, 29, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 21, 29, 0.08);
+  --shadow-lg: 0 24px 48px rgba(16, 21, 29, 0.14);
+
+  /* Easing */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 260ms;
 }
 
-html.light {
-  --bg-main: #f8fafc;
-  --bg-sidebar: #ffffff;
-  --bg-card: #ffffff;
-  --bg-input: #f1f5f9;
-  --border-color: #e2e8f0;
-  --border-light: #e2e8f0;
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dark: #94a3b8;
-  --hover-bg: #f1f5f9;
+/* Thème sombre optionnel (toggle dans le Header) — même identité garnet/stone,
+   surfaces inversées sur la palette navy. Défaut = clair (pas de classe). */
+html.dark {
+  --surface-page: var(--navy-900);
+  --surface-card: var(--navy-800);
+  --surface-card-alt: var(--navy-700);
+  --surface-overlay: rgba(0, 0, 0, 0.7);
+
+  --text-primary: var(--stone-50);
+  --text-secondary: var(--text-inverse-muted);
+  --text-muted: rgba(250, 248, 245, 0.48);
+  --text-accent: var(--garnet-400);
+
+  --border-subtle: var(--border-inverse);
+  --border-default: rgba(250, 248, 245, 0.26);
+
+  --action-primary: var(--stone-50);
+  --action-primary-hover: var(--stone-200);
+  --action-primary-text: var(--navy-900);
+  --action-accent: var(--garnet-500);
+  --action-accent-hover: var(--garnet-400);
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: var(--border-default) transparent;
 }
 
 html,
@@ -45,18 +156,27 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg-main);
-  color: var(--text-main);
-  font-family: 'Montserrat', sans-serif;
-  overflow-x: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  font-family: var(--font-body);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard);
 }
 
 input,
 select,
 button,
 textarea {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-body);
+}
+
+a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--garnet-400);
+  text-decoration: underline;
 }
 
 *::-webkit-scrollbar {
@@ -66,30 +186,62 @@ textarea {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border-default);
   border-radius: 3px;
 }
 
 .font-display {
-  font-family: 'DM Serif Display', serif;
+  font-family: var(--font-display);
+}
+.font-mono {
+  font-family: var(--font-mono);
 }
 
-@keyframes slideIn {
+@keyframes nb-rise {
   from {
-    transform: translateY(16px);
     opacity: 0;
+    transform: translateY(16px);
   }
   to {
-    transform: translateY(0);
     opacity: 1;
+    transform: translateY(0);
   }
 }
-@keyframes fadeIn {
+@keyframes nb-grow {
   from {
-    opacity: 0;
+    transform: scaleX(0);
   }
   to {
+    transform: scaleX(1);
+  }
+}
+@keyframes nb-toast {
+  0% {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  8% {
     opacity: 1;
+    transform: none;
+  }
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes nb-halo {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.05;
+    transform: scale(1.9);
   }
 }
 @keyframes spin {
@@ -99,14 +251,14 @@ textarea {
 }
 
 .toast-enter {
-  animation: slideIn 0.3s ease;
+  animation: nb-toast 5s var(--ease-standard) both;
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(14, 165, 233, 0.3);
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--border-subtle);
   border-radius: 50%;
-  border-top-color: var(--accent);
-  animation: spin 1s ease-in-out infinite;
+  border-top-color: var(--action-accent);
+  animation: spin 0.9s linear infinite;
 }

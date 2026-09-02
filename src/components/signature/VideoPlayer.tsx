@@ -48,7 +48,10 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid var(--border-color)', background: '#000' }}>
+      <div
+        className="overflow-hidden"
+        style={{ background: 'var(--navy-900)', borderRadius: 4, aspectRatio: '16 / 9' }}
+      >
         <video
           ref={videoRef}
           src={PLACEHOLDER_SRC}
@@ -56,15 +59,14 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
           controlsList="nodownload"
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
-          className="block w-full"
-          style={{ maxHeight: 420 }}
+          className="block h-full w-full"
         />
       </div>
-      <div className="mt-2 h-[6px] overflow-hidden rounded" style={{ background: 'var(--border-color)' }}>
-        <div className="h-full transition-[width]" style={{ width: `${pct}%`, background: pct >= 90 ? '#10b981' : '#3b82f6' }} />
+      <div className="mt-3 h-[3px]" style={{ background: 'var(--navy-700)' }}>
+        <div className="h-full transition-[width]" style={{ width: `${pct}%`, background: 'var(--action-accent)' }} />
       </div>
-      <div className="mt-1 text-[0.72rem]" style={{ color: 'var(--text-dark)' }}>
-        {pct}% visionné {pct >= 90 && '— section signature déverrouillée ✓'}
+      <div className="font-mono mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+        {pct}% visionné {pct >= 90 && '— section signature déverrouillée'}
       </div>
     </div>
   )

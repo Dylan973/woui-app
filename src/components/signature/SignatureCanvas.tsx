@@ -31,9 +31,9 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     canvas.width = rect.width * ratio
     canvas.height = rect.height * ratio
     ctx.scale(ratio, ratio)
-    ctx.lineWidth = 2.2
+    ctx.lineWidth = 2
     ctx.lineCap = 'round'
-    ctx.strokeStyle = '#e2e8f0'
+    ctx.strokeStyle = '#10151d' // var(--navy-900) — canvas 2D ne lit pas les custom properties
   }, [])
 
   const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -87,24 +87,25 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
         onPointerMove={move}
         onPointerUp={stop}
         onPointerLeave={stop}
-        className="w-full touch-none rounded-2xl"
+        className="w-full touch-none"
         style={{
           height: 180,
-          background: 'var(--bg-input)',
-          border: `1px dashed var(--border-color)`,
+          background: 'var(--stone-0)',
+          border: '1px dashed var(--border-default)',
+          borderRadius: 4,
           cursor: disabled ? 'not-allowed' : 'crosshair',
           opacity: disabled ? 0.5 : 1,
         }}
       />
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-[0.72rem]" style={{ color: 'var(--text-dark)' }}>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-[0.875rem]" style={{ color: 'var(--text-secondary)' }}>
           {disabled ? 'Visionnez la vidéo pour activer la signature' : 'Signez avec la souris ou votre doigt'}
         </span>
         <button
           onClick={clear}
           disabled={disabled || empty}
-          className="cursor-pointer rounded-md px-3 py-1 text-[0.75rem] disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
+          className="cursor-pointer rounded-[3px] px-3 py-1 text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ background: 'none', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           Effacer
         </button>

@@ -37,62 +37,91 @@ export function SendModal({ onClose, onSend, planId, used, limit }: SendModalPro
 
   return (
     <Modal onClose={onClose}>
-      <div className="mb-[1.4rem] flex justify-between">
-        <h3 className="font-display text-[1.2rem]" style={{ color: 'var(--text-main)' }}>
-          Nouveau consentement
-        </h3>
-        <button onClick={onClose} className="cursor-pointer border-none bg-transparent text-[22px] leading-none" style={{ color: 'var(--text-muted)' }}>
+      <div className="flex items-start justify-between gap-5">
+        <div>
+          <div
+            className="flex items-center gap-[10px] text-[0.8125rem] font-semibold uppercase"
+            style={{ color: 'var(--text-accent)', letterSpacing: 'var(--tracking-eyebrow)' }}
+          >
+            <span className="h-px w-[18px]" style={{ background: 'currentColor' }} />
+            Envoi
+          </div>
+          <h2 className="font-display mt-[14px] text-[26px]" style={{ color: 'var(--text-primary)' }}>
+            Nouveau consentement
+          </h2>
+        </div>
+        <button
+          onClick={onClose}
+          className="cursor-pointer text-[22px] leading-none"
+          style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+        >
           ×
         </button>
       </div>
 
       {atLimit ? (
-        <div className="p-4 text-center">
+        <div className="p-4 pt-8 text-center">
           <div className="mb-4 text-5xl">🔒</div>
-          <div className="mb-2 font-semibold text-[#f59e0b]">Limite atteinte</div>
-          <div className="mb-6 text-[0.88rem]" style={{ color: 'var(--text-muted)' }}>
+          <div className="mb-2 font-semibold" style={{ color: 'var(--text-accent)' }}>
+            Limite atteinte
+          </div>
+          <div className="mb-6 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
             {used}/{limit} consentements utilisés sur le plan {plan.name}.
           </div>
-          <Button onClick={onClose}>⬆ Voir les plans</Button>
+          <Button variant="accent" onClick={onClose}>
+            Voir les plans
+          </Button>
         </div>
       ) : (
         <>
-          <Input label="Nom du patient *" value={form.patient} onChange={(e) => set('patient', e.target.value)} placeholder="Marie Dupont" />
-          <Input
-            label="Email *"
-            type="email"
-            value={form.email}
-            onChange={(e) => set('email', e.target.value)}
-            placeholder="patient@email.com"
-          />
-          <div className="mb-[1.4rem]">
-            <label className="mb-[0.35rem] block text-[0.75rem] uppercase tracking-[0.8px]" style={{ color: 'var(--text-muted)' }}>
-              Acte médical
+          <p className="my-3 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+            Le patient reçoit un lien vers sa vidéo explicative, puis signe en ligne.
+          </p>
+
+          <div className="mt-5 flex flex-col gap-1">
+            <Input label="Nom du patient" value={form.patient} onChange={(e) => set('patient', e.target.value)} placeholder="Marie Dupont" />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(e) => set('email', e.target.value)}
+              placeholder="patient@email.com"
+            />
+            <label className="mb-5 flex flex-col gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
+                Acte médical
+              </span>
+              <select
+                value={form.procedure}
+                onChange={(e) => set('procedure', e.target.value)}
+                className="w-full rounded-[3px] px-[14px] py-3 text-[1.0625rem] outline-none"
+                style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              >
+                {PROCEDURES.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
             </label>
-            <select
-              value={form.procedure}
-              onChange={(e) => set('procedure', e.target.value)}
-              className="w-full rounded-[10px] px-4 py-[0.7rem] text-[0.88rem] outline-none"
-              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
-            >
-              {PROCEDURES.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg p-3 text-[0.8rem]" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.18)' }}>
+            <div
+              className="mb-4 p-3 text-[0.875rem]"
+              style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+            >
               {error}
             </div>
           )}
 
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose} className="flex-1">
+          <div className="mt-3 flex items-center gap-[14px] pt-[22px]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <span className="font-mono mr-auto text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {used} / {limit >= 999999 ? '∞' : limit} consentements ce mois
+            </span>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               Annuler
             </Button>
-            <Button onClick={handleSend} disabled={!valid} className="flex-[2]">
-              {loading ? 'Envoi en cours...' : '📤 Envoyer le lien'}
+            <Button variant="accent" size="sm" onClick={handleSend} disabled={!valid} style={{ opacity: valid ? 1 : 0.45 }}>
+              {loading ? 'Envoi en cours…' : 'Envoyer le lien'}
             </Button>
           </div>
         </>

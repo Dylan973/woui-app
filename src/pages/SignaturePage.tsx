@@ -9,6 +9,17 @@ import type { Consent } from '../types'
 
 type LoadState = 'loading' | 'not-found' | 'ready'
 
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span
+      className="font-mono flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[13px]"
+      style={{ background: 'var(--navy-900)', color: 'var(--stone-50)' }}
+    >
+      {n}
+    </span>
+  )
+}
+
 export function SignaturePage() {
   const { token } = useParams<{ token: string }>()
   const [state, setState] = useState<LoadState>('loading')
@@ -99,7 +110,7 @@ export function SignaturePage() {
 
   if (state === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#050a14' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
         <Spinner />
       </div>
     )
@@ -107,10 +118,13 @@ export function SignaturePage() {
 
   if (state === 'not-found' || !consent) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center" style={{ background: '#050a14', color: '#e2e8f0' }}>
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center"
+        style={{ background: 'var(--surface-page)', color: 'var(--text-primary)' }}
+      >
         <div className="text-5xl">🔗</div>
         <h1 className="font-display text-xl">Lien invalide ou expiré</h1>
-        <p className="max-w-sm text-sm" style={{ color: '#64748b' }}>
+        <p className="max-w-sm text-sm" style={{ color: 'var(--text-secondary)' }}>
           Ce lien de consentement n'existe pas ou a déjà été utilisé. Contactez votre praticien pour obtenir un nouveau lien.
         </p>
       </div>
@@ -121,87 +135,132 @@ export function SignaturePage() {
   const alreadySigned = consent.status === 'signed'
 
   return (
-    <div className="min-h-screen p-4 sm:p-8" style={{ background: '#050a14', color: '#e2e8f0' }}>
-      <div className="mx-auto max-w-[640px]">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <img src={WOUI_LOGO_URL} alt="Woui" className="h-11 w-11 rounded-xl" />
-          <h1 className="font-display text-[1.4rem]" style={{ color: '#f1f5f9' }}>
-            Espace Patient Sécurisé
-          </h1>
+    <div className="min-h-screen" style={{ background: 'var(--surface-page)', color: 'var(--text-primary)' }}>
+      <header
+        className="flex items-center justify-center gap-[11px] py-6"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-[3px] p-[6px]" style={{ background: 'var(--action-accent)' }}>
+          <img src={WOUI_LOGO_URL} alt="Woui" className="h-full w-full object-contain" />
         </div>
+        <span className="text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+          Espace Patient Sécurisé
+        </span>
+      </header>
 
+      <div className="mx-auto max-w-[680px] p-[48px_24px]">
         {alreadySigned ? (
-          <div className="rounded-[20px] p-10 text-center" style={{ background: '#0f172a', border: '1px solid #10b981' }}>
-            <div className="mb-4 text-5xl">✅</div>
-            <h2 className="font-display mb-2 text-xl" style={{ color: '#f1f5f9' }}>
-              Votre consentement a bien été enregistré
+          <div
+            className="p-[64px_32px] text-center"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+          >
+            <div
+              className="mx-auto mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-full"
+              style={{ background: 'var(--surface-card-alt)' }}
+            >
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--action-accent)" strokeWidth="2">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+            <h2 className="font-display text-[1.75rem]" style={{ color: 'var(--text-primary)' }}>
+              Consentement enregistré
             </h2>
-            <p className="text-sm" style={{ color: '#64748b' }}>
+            <p className="mx-auto mt-3 max-w-[42ch] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
               Signé le {new Date(consent.signed_at!).toLocaleDateString('fr-FR')} à{' '}
               {new Date(consent.signed_at!).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}. Une copie du
               document vous sera transmise par email.
             </p>
           </div>
         ) : (
-          <>
-            {/* Section 1 — informations */}
-            <div className="mb-5 rounded-[18px] p-6" style={{ background: '#0f172a', border: '1px solid #1e293b' }}>
-              <div className="mb-3 text-[0.72rem] uppercase tracking-wide" style={{ color: '#475569' }}>
-                Informations
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-[0.86rem]">
-                <div>
-                  <div style={{ color: '#475569' }}>Patient</div>
-                  <div style={{ color: '#e2e8f0' }}>{consent.patient}</div>
-                </div>
-                <div>
-                  <div style={{ color: '#475569' }}>Acte médical</div>
-                  <div style={{ color: '#e2e8f0' }}>{consent.procedure}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2 — vidéo */}
-            <div className="mb-5 rounded-[18px] p-6" style={{ background: '#0f172a', border: '1px solid #1e293b' }}>
-              <div className="mb-3 text-[0.72rem] uppercase tracking-wide" style={{ color: '#475569' }}>
-                Vidéo d'information
-              </div>
-              <VideoPlayer onProgress={handleVideoProgress} onViewed={handleVideoViewed} alreadyViewed={videoUnlocked} />
-            </div>
-
-            {/* Section 3 — signature */}
-            <div className="rounded-[18px] p-6" style={{ background: '#0f172a', border: '1px solid #1e293b' }}>
-              <div className="mb-3 text-[0.72rem] uppercase tracking-wide" style={{ color: '#475569' }}>
-                Signature électronique
-              </div>
-              <SignatureCanvas ref={signatureRef} disabled={!videoUnlocked} />
-
-              <label className="mt-4 flex items-center gap-2 text-[0.82rem]" style={{ color: videoUnlocked ? '#94a3b8' : '#334155' }}>
-                <input
-                  type="checkbox"
-                  checked={confirmChecked}
-                  onChange={(e) => setConfirmChecked(e.target.checked)}
-                  disabled={!videoUnlocked}
-                />
-                Je confirme avoir visionné la vidéo et compris les informations transmises.
-              </label>
-
-              {signError && (
-                <div className="mt-3 rounded-lg p-3 text-[0.8rem]" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.18)' }}>
-                  {signError}
-                </div>
-              )}
-
-              <button
-                onClick={handleSign}
-                disabled={!videoUnlocked || !confirmChecked || signing}
-                className="mt-4 w-full cursor-pointer rounded-[10px] py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', border: 'none' }}
+          <div className="flex flex-col gap-7">
+            {/* Étape 1 — informations */}
+            <div className="flex gap-4">
+              <StepNumber n={1} />
+              <div
+                className="flex-1 p-6"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
               >
-                {signing ? 'Enregistrement...' : 'Signer le consentement'}
-              </button>
+                <div className="font-mono mb-3 text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Informations
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-[0.9375rem]">
+                  <div>
+                    <div style={{ color: 'var(--text-muted)' }}>Patient</div>
+                    <div style={{ color: 'var(--text-primary)' }}>{consent.patient}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-muted)' }}>Acte médical</div>
+                    <div style={{ color: 'var(--text-primary)' }}>{consent.procedure}</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </>
+
+            {/* Étape 2 — vidéo */}
+            <div className="flex gap-4">
+              <StepNumber n={2} />
+              <div
+                className="flex-1 p-6"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+              >
+                <div className="font-mono mb-3 text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Vidéo d'information
+                </div>
+                <VideoPlayer onProgress={handleVideoProgress} onViewed={handleVideoViewed} alreadyViewed={videoUnlocked} />
+              </div>
+            </div>
+
+            {/* Étape 3 — signature */}
+            <div className="flex gap-4">
+              <StepNumber n={3} />
+              <div
+                className="flex-1 p-6"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+              >
+                <div className="font-mono mb-3 text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Signature électronique
+                </div>
+                <SignatureCanvas ref={signatureRef} disabled={!videoUnlocked} />
+
+                <label
+                  className="mt-4 flex items-center gap-2 text-[0.9375rem]"
+                  style={{ color: videoUnlocked ? 'var(--text-secondary)' : 'var(--text-muted)' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={confirmChecked}
+                    onChange={(e) => setConfirmChecked(e.target.checked)}
+                    disabled={!videoUnlocked}
+                    style={{ accentColor: 'var(--garnet-500)' }}
+                  />
+                  Je confirme avoir visionné la vidéo et compris les informations transmises.
+                </label>
+
+                {signError && (
+                  <div
+                    className="mt-3 p-3 text-[0.875rem]"
+                    style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+                  >
+                    {signError}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSign}
+                  disabled={!videoUnlocked || !confirmChecked || signing}
+                  className="mt-4 w-full cursor-pointer py-4 text-[1rem] font-semibold disabled:cursor-not-allowed"
+                  style={{
+                    borderRadius: 3,
+                    border: 'none',
+                    background: !videoUnlocked || !confirmChecked || signing ? 'var(--stone-200)' : 'var(--action-accent)',
+                    color: !videoUnlocked || !confirmChecked || signing ? 'var(--stone-500)' : 'var(--action-accent-text)',
+                  }}
+                >
+                  {signing ? 'Enregistrement...' : 'Signer le consentement'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

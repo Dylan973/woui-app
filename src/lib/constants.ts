@@ -68,11 +68,11 @@ export const PROCEDURES = [
   'Bridge dentaire',
 ]
 
-export const STATUS_CONFIG: Record<ConsentStatus, { label: string; color: string; dot: string }> = {
-  sent: { label: 'Envoyé', color: '#94a3b8', dot: '#475569' },
-  opened: { label: 'Lien ouvert', color: '#f59e0b', dot: '#d97706' },
-  viewed: { label: 'Visionné', color: '#3b82f6', dot: '#2563eb' },
-  signed: { label: 'Signé ✓', color: '#10b981', dot: '#059669' },
+export const STATUS_CONFIG: Record<ConsentStatus, { label: string; bg: string; fg: string; dot: string }> = {
+  sent: { label: 'Envoyé', bg: 'var(--stone-100)', fg: 'var(--stone-600)', dot: 'var(--stone-400)' },
+  opened: { label: 'Lien ouvert', bg: 'var(--amber-50)', fg: 'var(--amber-700)', dot: 'var(--amber-500)' },
+  viewed: { label: 'Visionné', bg: 'var(--blue-50)', fg: 'var(--blue-700)', dot: 'var(--blue-500)' },
+  signed: { label: 'Signé', bg: 'var(--green-50)', fg: 'var(--green-700)', dot: 'var(--green-500)' },
 }
 
 export const PLAN_LIMITS_LABEL = (n: number) => (n >= 999999 ? '∞' : String(n))

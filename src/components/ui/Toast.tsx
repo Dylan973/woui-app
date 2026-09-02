@@ -8,33 +8,44 @@ interface ToastProps {
   onDone: () => void
 }
 
-const COLORS: Record<ToastType, string> = {
-  success: '#10b981',
-  info: '#0ea5e9',
-  warning: '#f59e0b',
-}
-
-const ICONS: Record<ToastType, string> = {
-  success: '✅',
-  info: 'ℹ️',
-  warning: '⚠️',
+const DOT_COLOR: Record<ToastType, string> = {
+  success: 'var(--garnet-400)',
+  info: 'var(--blue-500)',
+  warning: 'var(--amber-500)',
 }
 
 export function Toast({ msg, type = 'success', onDone }: ToastProps) {
   useEffect(() => {
-    const t = setTimeout(onDone, 4000)
+    const t = setTimeout(onDone, 5000)
     return () => clearTimeout(t)
   }, [onDone])
 
-  const c = COLORS[type]
-
   return (
     <div
-      className="toast-enter fixed bottom-6 right-6 z-[9999] flex max-w-[320px] items-start gap-[0.65rem] rounded-2xl p-[0.9rem_1.2rem]"
-      style={{ background: 'var(--bg-card)', border: `1px solid ${c}55`, boxShadow: '0 8px 32px rgba(0,0,0,0.7)' }}
+      className="toast-enter fixed bottom-7 right-[30px] z-50 flex items-center gap-4 px-5 py-4"
+      style={{
+        background: 'var(--surface-card)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 4,
+        boxShadow: 'var(--shadow-lg)',
+      }}
     >
-      <span className="text-lg">{ICONS[type]}</span>
-      <span className="text-[0.85rem] leading-[1.5] text-[var(--text-muted)]">{msg}</span>
+      <span className="relative h-2 w-2 flex-shrink-0 rounded-full" style={{ background: DOT_COLOR[type] }}>
+        <span
+          className="absolute inset-0 rounded-full"
+          style={{ background: DOT_COLOR[type], animation: 'nb-halo 2s ease-in-out infinite' }}
+        />
+      </span>
+      <span className="text-[0.9375rem]" style={{ color: 'var(--text-primary)' }}>
+        {msg}
+      </span>
+      <button
+        onClick={onDone}
+        className="cursor-pointer text-base leading-none"
+        style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+      >
+        ×
+      </button>
     </div>
   )
 }
