@@ -50,7 +50,7 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
     <div>
       <div
         className="overflow-hidden"
-        style={{ background: 'var(--navy-900)', borderRadius: 4, aspectRatio: '16 / 9' }}
+        style={{ background: '#12111f', borderRadius: 4, aspectRatio: '16 / 9' }}
       >
         <video
           ref={videoRef}
@@ -62,8 +62,8 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
           className="block h-full w-full"
         />
       </div>
-      <div className="mt-3 h-[3px]" style={{ background: 'var(--navy-700)' }}>
-        <div className="h-full transition-[width]" style={{ width: `${pct}%`, background: 'var(--action-accent)' }} />
+      <div className="mt-3 h-[3px]" style={{ background: '#232140' }}>
+        <div className="h-full transition-[width]" style={{ width: `${pct}%`, background: 'var(--mint)' }} />
       </div>
       <div className="font-mono mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
         {pct}% visionné {pct >= 90 && '— section signature déverrouillée'}

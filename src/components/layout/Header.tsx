@@ -12,11 +12,15 @@ interface HeaderProps {
 }
 
 function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('woui_theme') === 'dark' ? 'dark' : 'light'))
+  // L'attribut data-theme est déjà posé par le script anti-flash dans index.html
+  // avant même le premier rendu React — on part de cet état plutôt que de le redériver.
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
+  )
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem('woui_theme', theme)
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('woui-theme', theme)
   }, [theme])
 
   return { theme, toggle: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')) }
@@ -161,14 +165,14 @@ export function Header({ doctor, consents, onOpenSendModal, onSignOut }: HeaderP
             {unread > 0 && (
               <span
                 className="absolute right-[7px] top-[7px] h-[5px] w-[5px] rounded-full"
-                style={{ background: 'var(--garnet-400)' }}
+                style={{ background: 'var(--accent)' }}
               />
             )}
           </button>
           {notifOpen && (
             <div
               className="absolute right-0 top-[calc(100%+10px)] z-[60] w-80 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-2"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: 'var(--shadow-lg)' }}
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
               <div className="flex items-center justify-between px-3 py-[10px_12px]">
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
@@ -199,7 +203,7 @@ export function Header({ doctor, consents, onOpenSendModal, onSignOut }: HeaderP
         </div>
 
         {isDashboard && (
-          <Button variant="accent" size="sm" onClick={onOpenSendModal}>
+          <Button variant="primary" size="sm" onClick={onOpenSendModal}>
             <span className="hidden sm:inline">+ Nouveau consentement</span>
             <span className="sm:hidden">+ Nouveau</span>
           </Button>
@@ -216,7 +220,7 @@ export function Header({ doctor, consents, onOpenSendModal, onSignOut }: HeaderP
           {avatarOpen && (
             <div
               className="absolute right-0 top-[calc(100%+10px)] z-[60] w-44 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-1"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: 'var(--shadow-lg)' }}
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
               <button
                 onClick={() => {

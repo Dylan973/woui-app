@@ -7,9 +7,19 @@
     <title>Woui — Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Polices chargées via @import dans src/index.css (Newsreader / Manrope / IBM Plex Mono) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
   </head>
   <body>
+    <script>
+      // Anti-flash thème : pose data-theme sur <html> avant le premier paint,
+      // pour éviter un clignotement clair→sombre au chargement.
+      ;(function () {
+        var t =
+          localStorage.getItem('woui-theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        document.documentElement.dataset.theme = t
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

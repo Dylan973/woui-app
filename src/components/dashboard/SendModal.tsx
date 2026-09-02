@@ -68,7 +68,7 @@ export function SendModal({ onClose, onSend, planId, used, limit }: SendModalPro
           <div className="mb-6 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
             {used}/{limit} consentements utilisés sur le plan {plan.name}.
           </div>
-          <Button variant="accent" onClick={onClose}>
+          <Button variant="primary" onClick={onClose}>
             Voir les plans
           </Button>
         </div>
@@ -107,7 +107,7 @@ export function SendModal({ onClose, onSend, planId, used, limit }: SendModalPro
           {error && (
             <div
               className="mb-4 p-3 text-[0.875rem]"
-              style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+              style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', borderRadius: 3 }}
             >
               {error}
             </div>
@@ -120,7 +120,7 @@ export function SendModal({ onClose, onSend, planId, used, limit }: SendModalPro
             <Button variant="ghost" size="sm" onClick={onClose}>
               Annuler
             </Button>
-            <Button variant="accent" size="sm" onClick={handleSend} disabled={!valid} style={{ opacity: valid ? 1 : 0.45 }}>
+            <Button variant="primary" size="sm" onClick={handleSend} disabled={!valid} style={{ opacity: valid ? 1 : 0.45 }}>
               {loading ? 'Envoi en cours…' : 'Envoyer le lien'}
             </Button>
           </div>

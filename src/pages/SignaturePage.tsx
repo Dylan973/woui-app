@@ -13,7 +13,7 @@ function StepNumber({ n }: { n: number }) {
   return (
     <span
       className="font-mono flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[13px]"
-      style={{ background: 'var(--navy-900)', color: 'var(--stone-50)' }}
+      style={{ background: 'var(--action-primary)', color: 'var(--action-primary-text)' }}
     >
       {n}
     </span>
@@ -231,7 +231,7 @@ export function SignaturePage() {
                     checked={confirmChecked}
                     onChange={(e) => setConfirmChecked(e.target.checked)}
                     disabled={!videoUnlocked}
-                    style={{ accentColor: 'var(--garnet-500)' }}
+                    style={{ accentColor: 'var(--accent)' }}
                   />
                   Je confirme avoir visionné la vidéo et compris les informations transmises.
                 </label>
@@ -239,7 +239,7 @@ export function SignaturePage() {
                 {signError && (
                   <div
                     className="mt-3 p-3 text-[0.875rem]"
-                    style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+                    style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', borderRadius: 3 }}
                   >
                     {signError}
                   </div>
@@ -252,8 +252,8 @@ export function SignaturePage() {
                   style={{
                     borderRadius: 3,
                     border: 'none',
-                    background: !videoUnlocked || !confirmChecked || signing ? 'var(--stone-200)' : 'var(--action-accent)',
-                    color: !videoUnlocked || !confirmChecked || signing ? 'var(--stone-500)' : 'var(--action-accent-text)',
+                    background: !videoUnlocked || !confirmChecked || signing ? 'var(--border-default)' : 'var(--action-primary)',
+                    color: !videoUnlocked || !confirmChecked || signing ? 'var(--text-muted)' : 'var(--action-primary-text)',
                   }}
                 >
                   {signing ? 'Enregistrement...' : 'Signer le consentement'}

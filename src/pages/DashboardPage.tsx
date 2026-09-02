@@ -115,7 +115,7 @@ export function DashboardPage() {
         >
           <div
             className="pointer-events-none absolute -right-[60px] -top-[80px] h-[260px] w-[260px] rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(184,35,42,0.22), transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, rgba(108,92,231,0.18), transparent 70%)' }}
           />
           <div
             className="flex items-center gap-[10px] text-[0.8125rem] font-semibold uppercase"
@@ -138,7 +138,7 @@ export function DashboardPage() {
           {pending.length > 0 && (
             <div className="mt-7 flex flex-wrap gap-3">
               <Button
-                variant="accent"
+                variant="primary"
                 onClick={() => showToast('La relance groupée par email arrive prochainement.', 'info')}
               >
                 Relancer les {pending.length} patient{pending.length > 1 ? 's' : ''}
@@ -163,7 +163,7 @@ export function DashboardPage() {
                 {s.label}
               </div>
               <div
-                className="font-display my-[10px] text-[44px]"
+                className="font-display tabular-nums my-[10px] text-[44px] font-semibold"
                 style={{ color: s.accent ? 'var(--text-accent)' : 'var(--text-primary)' }}
               >
                 {s.value}
@@ -243,8 +243,8 @@ export function DashboardPage() {
                   {[0, 1, 2, 3].map((i) => {
                     const done = i < step
                     const isLast = i === step - 1
-                    const dotColor = done ? (isLast ? 'var(--action-accent)' : 'var(--text-primary)') : 'transparent'
-                    const ringColor = done ? (isLast ? 'var(--action-accent)' : 'var(--text-primary)') : 'var(--border-default)'
+                    const dotColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'transparent'
+                    const ringColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'var(--border-default)'
                     const railColor = i < step - 1 ? 'var(--text-primary)' : 'var(--border-subtle)'
                     return (
                       <div key={i} className="flex flex-col items-center">
@@ -289,7 +289,7 @@ export function DashboardPage() {
                         Vidéo {c.video_progress}%
                       </div>
                       <div className="h-[2px]" style={{ background: 'var(--border-subtle)' }}>
-                        <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--action-accent)' }} />
+                        <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--mint)' }} />
                       </div>
                     </div>
                   </div>
@@ -355,9 +355,9 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
         className="max-w-[480px] p-[3rem_2.5rem] text-center"
         style={{
           background: 'var(--surface-card)',
-          border: '1px solid var(--border-accent)',
+          border: '1px solid var(--accent)',
           borderRadius: 4,
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
           animation: 'nb-rise 0.4s var(--ease-standard) both',
         }}
       >
@@ -391,7 +391,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
-        <Button variant="accent" onClick={onClose} className="w-full justify-center">
+        <Button variant="primary" onClick={onClose} className="w-full justify-center">
           J'ai compris, c'est parti
         </Button>
       </div>

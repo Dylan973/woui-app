@@ -33,7 +33,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     ctx.scale(ratio, ratio)
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
-    ctx.strokeStyle = '#10151d' // var(--navy-900) — canvas 2D ne lit pas les custom properties
+    ctx.strokeStyle = '#171734' // var(--text-primary) — canvas 2D ne lit pas les custom properties
   }, [])
 
   const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -90,7 +90,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
         className="w-full touch-none"
         style={{
           height: 180,
-          background: 'var(--stone-0)',
+          background: 'var(--surface-card)',
           border: '1px dashed var(--border-default)',
           borderRadius: 4,
           cursor: disabled ? 'not-allowed' : 'crosshair',

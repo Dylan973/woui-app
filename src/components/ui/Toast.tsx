@@ -9,9 +9,9 @@ interface ToastProps {
 }
 
 const DOT_COLOR: Record<ToastType, string> = {
-  success: 'var(--garnet-400)',
-  info: 'var(--blue-500)',
-  warning: 'var(--amber-500)',
+  success: 'var(--mint)',
+  info: 'var(--accent)',
+  warning: 'var(--status-opened-dot)',
 }
 
 export function Toast({ msg, type = 'success', onDone }: ToastProps) {
@@ -27,7 +27,7 @@ export function Toast({ msg, type = 'success', onDone }: ToastProps) {
         background: 'var(--surface-card)',
         border: '1px solid var(--border-default)',
         borderRadius: 4,
-        boxShadow: 'var(--shadow-lg)',
+        boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
       }}
     >
       <span className="relative h-2 w-2 flex-shrink-0 rounded-full" style={{ background: DOT_COLOR[type] }}>

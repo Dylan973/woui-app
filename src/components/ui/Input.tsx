@@ -26,7 +26,8 @@ export function Input({ label, hint, onFocus, onBlur, ...props }: InputProps) {
         className="w-full rounded-[3px] px-[14px] py-3 text-[1.0625rem] outline-none transition-colors"
         style={{
           background: 'var(--surface-card-alt)',
-          border: `1px solid ${focus ? 'var(--garnet-500)' : 'var(--border-subtle)'}`,
+          border: `1px solid ${focus ? 'var(--accent)' : 'var(--border-subtle)'}`,
+          boxShadow: focus ? '0 0 0 2px rgba(108,92,231,0.2)' : 'none',
           color: 'var(--text-primary)',
           fontFamily: 'var(--font-body)',
         }}

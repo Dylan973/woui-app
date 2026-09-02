@@ -75,18 +75,19 @@ export function SettingsPage() {
         Paramètres
       </h1>
 
-      <div className="mb-9 flex gap-1 overflow-x-auto" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="mb-9 flex flex-wrap gap-1">
         {TABS.map((t) => {
           const active = tab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="flex flex-shrink-0 items-center gap-[9px] px-[18px] py-3 text-[0.9375rem]"
+              className="flex flex-shrink-0 items-center gap-[9px] px-4 py-[10px] text-[0.9375rem]"
               style={{
-                background: 'none',
-                border: 0,
-                borderBottom: `2px solid ${active ? 'var(--action-accent)' : 'transparent'}`,
+                background: active ? 'var(--surface-card-alt)' : 'none',
+                border: 'none',
+                borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
+                borderRadius: 3,
                 color: active ? 'var(--text-primary)' : 'var(--text-muted)',
                 cursor: 'pointer',
               }}

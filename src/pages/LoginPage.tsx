@@ -45,7 +45,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-6" style={{ background: 'var(--surface-page)' }}>
       <div
         className="w-full max-w-[420px] p-[clamp(1.75rem,5vw,48px)]"
-        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, boxShadow: 'var(--shadow-md)' }}
+        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
       >
         <div className="mb-9 flex flex-col items-center gap-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-[3px] p-[7px]" style={{ background: 'var(--action-accent)' }}>
@@ -82,7 +82,7 @@ export function LoginPage() {
           {error && (
             <div
               className="mb-4 p-3 text-[0.875rem]"
-              style={{ background: 'var(--garnet-100)', border: '1px solid var(--garnet-100)', color: 'var(--garnet-700)', borderRadius: 3 }}
+              style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-text)', borderRadius: 3 }}
             >
               {error}
             </div>
@@ -90,13 +90,13 @@ export function LoginPage() {
           {resetSent && (
             <div
               className="mb-4 p-3 text-[0.875rem]"
-              style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: 'var(--green-700)', borderRadius: 3 }}
+              style={{ background: 'var(--mint-soft)', border: '1px solid rgba(63,199,154,0.3)', color: '#065f46', borderRadius: 3 }}
             >
               Email de réinitialisation envoyé, vérifiez votre boîte de réception.
             </div>
           )}
 
-          <Button type="submit" variant="accent" disabled={loading} className="mt-2 w-full justify-center py-[14px] text-[1rem]">
+          <Button type="submit" variant="primary" disabled={loading} className="mt-2 w-full justify-center py-[14px] text-[1rem]">
             {loading ? 'Connexion...' : 'Se connecter'}
           </Button>
         </form>

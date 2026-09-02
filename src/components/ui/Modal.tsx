@@ -21,7 +21,7 @@ export function Modal({ onClose, children, maxWidth = 460, zIndex = 500 }: Modal
           background: 'var(--surface-card)',
           border: '1px solid var(--border-default)',
           borderRadius: 4,
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: '0 16px 40px rgba(0,0,0,0.18)',
           maxWidth,
         }}
         onClick={(e) => e.stopPropagation()}
