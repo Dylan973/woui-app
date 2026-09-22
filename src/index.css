@@ -265,3 +265,84 @@ a:hover {
   border-top-color: var(--action-accent);
   animation: spin 0.9s linear infinite;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   PAGE PATIENT /sign/:token — blanc + vert menthe.
+   Portée volontairement isolée du dashboard : la page porte son propre
+   data-theme (clair par défaut) et n'hérite pas du thème praticien.
+   ════════════════════════════════════════════════════════════════════ */
+
+[data-woui-patient][data-theme='light'] {
+  --page: #f6faf8;
+  --card: #ffffff;
+  --panel: #f1f7f4;
+  --veil: rgba(246, 250, 248, 0.74);
+  --video: #0b211c;
+
+  --ink: #0c1f1a;
+  --ink-2: rgba(12, 31, 26, 0.62);
+  --ink-3: rgba(12, 31, 26, 0.48);
+  --ink-4: rgba(12, 31, 26, 0.34);
+
+  --line: rgba(12, 31, 26, 0.07);
+  --line-2: rgba(12, 31, 26, 0.14);
+
+  --mint-soft: #e2f4ec;
+  --mint-ink: #0b7a5c;
+}
+
+[data-woui-patient][data-theme='dark'] {
+  --page: #081914;
+  --card: #0e2621;
+  --panel: #14332c;
+  --veil: rgba(8, 25, 20, 0.74);
+  --video: #04120e;
+
+  --ink: #eaf6f1;
+  --ink-2: rgba(234, 246, 241, 0.66);
+  --ink-3: rgba(234, 246, 241, 0.5);
+  --ink-4: rgba(234, 246, 241, 0.36);
+
+  --line: rgba(234, 246, 241, 0.1);
+  --line-2: rgba(234, 246, 241, 0.2);
+
+  --mint-soft: rgba(17, 177, 132, 0.18);
+  --mint-ink: #6fe9c4;
+}
+
+[data-woui-patient] :focus-visible {
+  outline: 2px solid #11b184;
+  outline-offset: 2px;
+}
+
+@keyframes wp-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wp-skel {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+@keyframes wp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

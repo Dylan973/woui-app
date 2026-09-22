@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 export interface SignatureCanvasHandle {
   /** Retourne la signature en base64 PNG, ou null si le canvas est vide. */
@@ -18,7 +18,6 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
   const hasDrawn = useRef(false)
-  const [empty, setEmpty] = useState(true)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -33,7 +32,6 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     ctx.scale(ratio, ratio)
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
-    ctx.strokeStyle = '#171734' // var(--text-primary) — canvas 2D ne lit pas les custom properties
   }, [])
 
   const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -45,8 +43,11 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     if (disabled) return
     drawing.current = true
     hasDrawn.current = true
-    setEmpty(false)
-    const ctx = canvasRef.current!.getContext('2d')!
+    const canvas = canvasRef.current!
+    const ctx = canvas.getContext('2d')!
+    // canvas 2D ne lit pas les custom properties : on résout --ink au moment du tracé
+    // pour que la signature suive le thème actif de la page patient.
+    ctx.strokeStyle = getComputedStyle(canvas).getPropertyValue('--ink').trim() || '#0c1f1a'
     const { x, y } = getPos(e)
     ctx.beginPath()
     ctx.moveTo(x, y)
@@ -70,7 +71,6 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     hasDrawn.current = false
-    setEmpty(true)
   }
 
   useImperativeHandle(ref, () => ({
@@ -80,36 +80,20 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
   }))
 
   return (
-    <div>
-      <canvas
-        ref={canvasRef}
-        onPointerDown={start}
-        onPointerMove={move}
-        onPointerUp={stop}
-        onPointerLeave={stop}
-        className="w-full touch-none"
-        style={{
-          height: 180,
-          background: 'var(--surface-card)',
-          border: '1px dashed var(--border-default)',
-          borderRadius: 4,
-          cursor: disabled ? 'not-allowed' : 'crosshair',
-          opacity: disabled ? 0.5 : 1,
-        }}
-      />
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[0.875rem]" style={{ color: 'var(--text-secondary)' }}>
-          {disabled ? 'Visionnez la vidéo pour activer la signature' : 'Signez avec la souris ou votre doigt'}
-        </span>
-        <button
-          onClick={clear}
-          disabled={disabled || empty}
-          className="cursor-pointer rounded-[3px] px-3 py-1 text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ background: 'none', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
-        >
-          Effacer
-        </button>
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      onPointerDown={start}
+      onPointerMove={move}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      className="block w-full touch-none"
+      style={{
+        height: 200,
+        background: 'var(--card)',
+        border: '1.5px dashed rgba(17,177,132,.45)',
+        borderRadius: 14,
+        cursor: disabled ? 'not-allowed' : 'crosshair',
+      }}
+    />
   )
 })
