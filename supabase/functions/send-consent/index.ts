@@ -11,8 +11,6 @@
 // second système d'envoi).
 // Variables d'env (déjà présentes) : RESEND_API_KEY, APP_URL
 
-import { createClient } from 'jsr:@supabase/supabase-js@2'
-
 interface SendConsentPayload {
   consentId: string
   patientEmail: string
@@ -100,9 +98,6 @@ Deno.serve(async (req: Request) => {
       console.error('Resend error:', errorBody)
       return json({ success: false, error: errorBody }, 502)
     }
-
-    // Optionnel : trace d'audit via le client Supabase (service_role) si besoin plus tard.
-    void createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 
     return json({ success: true })
   } catch (error) {
