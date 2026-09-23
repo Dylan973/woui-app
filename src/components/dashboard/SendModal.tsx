@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -14,6 +15,7 @@ interface SendModalProps {
 }
 
 export function SendModal({ onClose, onSend, planId, used, limit }: SendModalProps) {
+  const navigate = useNavigate()
   const [form, setForm] = useState<NewConsentForm>({ patient: '', email: '', procedure: PROCEDURES[0] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,7 +70,13 @@ export function SendModal({ onClose, onSend, planId, used, limit }: SendModalPro
           <div className="mb-6 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
             {used}/{limit} consentements utilisés sur le plan {plan.name}.
           </div>
-          <Button variant="primary" onClick={onClose}>
+          <Button
+            variant="primary"
+            onClick={() => {
+              onClose()
+              navigate('/settings?tab=plan')
+            }}
+          >
             Voir les plans
           </Button>
         </div>

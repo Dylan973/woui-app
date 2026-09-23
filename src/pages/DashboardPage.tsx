@@ -57,10 +57,12 @@ function median(values: number[]): number | null {
 }
 
 export function DashboardPage() {
-  const { consents, consentsLoading, showToast } = useOutletContext<DashboardOutletContext>()
+  const { consents, consentsLoading, resendConsent, showToast } = useOutletContext<DashboardOutletContext>()
   const [filter, setFilter] = useState<FilterKey>('all')
   const [sortDesc, setSortDesc] = useState(true)
   const [showTutorial, setShowTutorial] = useState(false)
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [resendingAll, setResendingAll] = useState(false)
 
   useEffect(() => {
     if (!localStorage.getItem('woui_tutorial_seen')) setShowTutorial(true)
@@ -86,6 +88,30 @@ export function DashboardPage() {
       .map((c) => (new Date(c.signed_at!).getTime() - new Date(c.sent_at).getTime()) / 60000)
     return median(durations)
   }, [consents])
+
+  const handleResend = async (consent: Consent) => {
+    setResendingId(consent.id)
+    const { error } = await resendConsent(consent)
+    setResendingId(null)
+    showToast(
+      error ? `Relance non envoyée à ${consent.patient} : ${error}` : `Relance envoyée à ${consent.patient}`,
+      error ? 'warning' : 'success'
+    )
+  }
+
+  const handleResendAll = async () => {
+    setResendingAll(true)
+    const results = await Promise.all(pending.map((c) => resendConsent(c)))
+    setResendingAll(false)
+    const failed = results.filter((r) => r.error).length
+    const sent = results.length - failed
+    showToast(
+      failed === 0
+        ? `${sent} relance${sent > 1 ? 's' : ''} envoyée${sent > 1 ? 's' : ''}`
+        : `${sent}/${results.length} relances envoyées, ${failed} en échec`,
+      failed === 0 ? 'success' : 'warning'
+    )
+  }
 
   const stats = [
     { label: 'Envoyés', value: consents.length, sub: 'consentements au total' },
@@ -137,11 +163,10 @@ export function DashboardPage() {
           </p>
           {pending.length > 0 && (
             <div className="mt-7 flex flex-wrap gap-3">
-              <Button
-                variant="primary"
-                onClick={() => showToast('La relance groupée par email arrive prochainement.', 'info')}
-              >
-                Relancer les {pending.length} patient{pending.length > 1 ? 's' : ''}
+              <Button variant="primary" onClick={handleResendAll} disabled={resendingAll}>
+                {resendingAll
+                  ? 'Envoi des relances…'
+                  : `Relancer les ${pending.length} patient${pending.length > 1 ? 's' : ''}`}
               </Button>
               <Button variant="ghost" onClick={() => setFilter('sent')}>
                 Voir le détail
@@ -316,11 +341,17 @@ export function DashboardPage() {
                       )
                     ) : (
                       <button
-                        onClick={() => showToast(`Relance envoyée à ${c.patient} (fonctionnalité à venir).`, 'info')}
-                        className="cursor-pointer text-[0.8125rem]"
-                        style={{ background: 'none', border: 0, color: 'var(--text-secondary)' }}
+                        onClick={() => handleResend(c)}
+                        disabled={resendingId === c.id}
+                        className="text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{
+                          background: 'none',
+                          border: 0,
+                          color: 'var(--text-secondary)',
+                          cursor: resendingId === c.id ? 'not-allowed' : 'pointer',
+                        }}
                       >
-                        Relancer
+                        {resendingId === c.id ? 'Envoi…' : 'Relancer'}
                       </button>
                     )}
                     <span className="font-mono ml-auto text-[11px]" style={{ color: 'var(--text-muted)' }}>

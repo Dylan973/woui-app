@@ -13,6 +13,7 @@ export interface DashboardOutletContext {
   consents: ReturnType<typeof useConsents>['consents']
   consentsLoading: boolean
   refetchConsents: () => Promise<void>
+  resendConsent: ReturnType<typeof useConsents>['resendConsent']
   openSendModal: () => void
   showToast: (msg: string, type?: ToastType) => void
 }
@@ -28,7 +29,7 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
   const [showSend, setShowSend] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
 
-  const { consents, loading: consentsLoading, sendConsent, refetch } = useConsents(doctor?.id ?? null)
+  const { consents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
 
   if (authLoading) {
     return (
@@ -69,6 +70,7 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
     consents,
     consentsLoading,
     refetchConsents: refetch,
+    resendConsent,
     openSendModal: () => setShowSend(true),
     showToast,
   }

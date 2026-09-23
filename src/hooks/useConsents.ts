@@ -7,6 +7,7 @@ interface UseConsentsResult {
   loading: boolean
   error: string | null
   sendConsent: (form: NewConsentForm) => Promise<{ error: string | null }>
+  resendConsent: (consent: Consent) => Promise<{ error: string | null }>
   refetch: () => Promise<void>
 }
 
@@ -127,5 +128,20 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
     [doctorId]
   )
 
-  return { consents, loading, error, sendConsent, refetch: fetchConsents }
+  // Renvoie le même email que l'envoi initial (lien /sign/:token inchangé) : le token
+  // reste valide tant que le consentement n'est pas signé.
+  const resendConsent = useCallback(async (consent: Consent) => {
+    const { error: fnError } = await supabase.functions.invoke('send-consent', {
+      body: {
+        consentId: consent.id,
+        patientEmail: consent.email,
+        patientName: consent.patient,
+        procedure: consent.procedure,
+        token: consent.token,
+      },
+    })
+    return { error: fnError ? fnError.message : null }
+  }, [])
+
+  return { consents, loading, error, sendConsent, resendConsent, refetch: fetchConsents }
 }

@@ -52,11 +52,15 @@ et de `useConsents` (`from('consents').select().eq('doctor_id')` + abonnement re
 
 - **Route** : `/dashboard`
 - **Fichier** : `src/pages/DashboardPage.tsx`
-- **Statut** : ⚠️ partiel — les boutons « Relancer » et « Relancer les N patients » affichent
-  un toast « fonctionnalité à venir », aucune relance n'est réellement envoyée
-- **Dernière modif** : 2026-09-03 (`776c2aa`)
-- **Supabase** : lecture seule via le contexte du layout (aucun appel direct) ; les statuts
-  se mettent à jour en direct via l'abonnement realtime de `useConsents`
+- **Statut** : ✅ complet
+- **Dernière modif** : 2026-09-23
+- **Supabase** : lecture via le contexte du layout ; les statuts se mettent à jour en direct via
+  l'abonnement realtime de `useConsents`. Les boutons « Relancer » (par carte) et « Relancer les N
+  patients » (groupé) appellent `functions.invoke('send-consent')` via `useConsents.resendConsent`,
+  qui renvoie l'email contenant le même lien `/sign/:token`.
+- **Limites connues** : l'email de relance est identique à l'email d'envoi initial (l'Edge Function
+  ne distingue pas les deux cas), et aucune colonne ne trace la date de relance — donc ni historique
+  ni garde-fou contre les relances répétées.
 
 ### 3. Tutoriel de première visite
 
@@ -80,8 +84,8 @@ et de `useConsents` (`from('consents').select().eq('doctor_id')` + abonnement re
 
 - **Route** : `/dashboard` (modale, état exclusif de l'écran 4)
 - **Fichier** : `src/components/dashboard/SendModal.tsx`
-- **Statut** : ⚠️ partiel — le bouton « Voir les plans » ferme la modale sans naviguer vers `/settings`
-- **Dernière modif** : 2026-09-03 (`776c2aa`)
+- **Statut** : ✅ complet — « Voir les plans » ferme la modale et navigue vers `/settings?tab=plan`
+- **Dernière modif** : 2026-09-23
 - **Supabase** : aucun — comparaison côté client entre `consents.length` et la limite du plan
   définie dans `src/lib/constants.ts`
 
@@ -93,7 +97,7 @@ Mêmes dépendances de chargement que `/dashboard` (`useAuth` + `useConsents` vi
 
 ### 6. Paramètres — Profil
 
-- **Route** : `/settings` (onglet par défaut)
+- **Route** : `/settings` (onglet par défaut ; l'onglet actif vit dans `?tab=`)
 - **Fichier** : `src/pages/SettingsPage.tsx`
 - **Statut** : ✅ complet
 - **Dernière modif** : 2026-09-03 (`776c2aa`)
@@ -102,7 +106,7 @@ Mêmes dépendances de chargement que `/dashboard` (`useAuth` + `useConsents` vi
 
 ### 7. Paramètres — Abonnement
 
-- **Route** : `/settings` (onglet)
+- **Route** : `/settings?tab=plan` — cible du bouton « Voir les plans » de l'écran 5
 - **Fichier** : `src/pages/SettingsPage.tsx`
 - **Statut** : ✅ complet — le changement de plan est délégué au portail client SureCart
   (`SURECART_PORTAL_URL` dans `src/lib/constants.ts`)
@@ -211,4 +215,3 @@ Thème clair/sombre propre à la page, stocké dans `localStorage('woui_patient_
 | --- | --- | --- |
 | Statistiques | bouton désactivé dans `src/components/layout/Header.tsx` | aucune route, aucune vue |
 | Recherche patient | champ décoratif (`⌘K`) dans le header | non branché |
-| Relance de consentement | boutons du tableau de bord | affichent un toast « à venir » |

@@ -28,10 +28,10 @@ Statuts : ✅ complet · ⚠️ partiel · 🚧 placeholder « Bientôt »
 | # | Écran | Route | Fichier | Statut |
 | --- | --- | --- | --- | --- |
 | 1 | Connexion praticien | `/login` | `src/pages/LoginPage.tsx` | ✅ |
-| 2 | Tableau de bord — liste | `/dashboard` | `src/pages/DashboardPage.tsx` | ⚠️ relances non branchées |
+| 2 | Tableau de bord — liste | `/dashboard` | `src/pages/DashboardPage.tsx` | ✅ |
 | 3 | Tutoriel 1re visite | `/dashboard` (modale) | `src/pages/DashboardPage.tsx` | ✅ |
 | 4 | Nouveau consentement | `/dashboard` (modale) | `src/components/dashboard/SendModal.tsx` | ✅ |
-| 5 | Limite de plan atteinte | `/dashboard` (modale) | `src/components/dashboard/SendModal.tsx` | ⚠️ |
+| 5 | Limite de plan atteinte | `/dashboard` (modale) | `src/components/dashboard/SendModal.tsx` | ✅ |
 | 6 | Paramètres — Profil | `/settings` | `src/pages/SettingsPage.tsx` | ✅ |
 | 7 | Paramètres — Abonnement | `/settings` | `src/pages/SettingsPage.tsx` | ✅ |
 | 8 | Paramètres — Documents PDF | `/settings` | `src/pages/SettingsPage.tsx` | 🚧 |
@@ -44,7 +44,7 @@ Statuts : ✅ complet · ⚠️ partiel · 🚧 placeholder « Bientôt »
 | 15 | Signature — parcours | `/sign/:token` | `src/pages/SignaturePage.tsx` | ⚠️ vidéo placeholder |
 | 16 | Signature — confirmation | `/sign/:token` | `src/pages/SignaturePage.tsx` | ✅ |
 
-Écrans prévus mais non développés : Statistiques, Recherche patient, Relance de consentement.
+Écrans prévus mais non développés : Statistiques, Recherche patient.
 
 ### Branches
 

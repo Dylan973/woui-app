@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -15,6 +15,10 @@ const TABS: { id: TabId; label: string; soon?: boolean }[] = [
   { id: 'notifications', label: 'Notifications', soon: true },
   { id: 'security', label: 'Sécurité', soon: true },
 ]
+
+function isTabId(value: string | null): value is TabId {
+  return TABS.some((t) => t.id === value)
+}
 
 function SoonTag() {
   return (
@@ -41,7 +45,12 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast } = useOutletContext<DashboardOutletContext>()
-  const [tab, setTab] = useState<TabId>('profile')
+  // L'onglet vit dans l'URL : « Voir les plans » (modale de limite atteinte) ouvre
+  // directement /settings?tab=plan, et le lien reste partageable.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const tab: TabId = isTabId(tabParam) ? tabParam : 'profile'
+  const setTab = (next: TabId) => setSearchParams(next === 'profile' ? {} : { tab: next }, { replace: true })
   const [form, setForm] = useState({
     first_name: doctor.first_name ?? '',
     last_name: doctor.last_name ?? '',
