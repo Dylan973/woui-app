@@ -10,6 +10,47 @@ SaaS B2B pour chirurgiens-dentistes : envoi de consentements éclairés numériq
 - **Routing** : React Router v6
 - **Hébergement** : Vercel
 
+## Architecture
+
+Quatre routes, quatre fichiers de pages, **16 écrans** (un écran = une vue complète et exclusive :
+route, onglet, modale ou état de page). Détail complet — dépendances Supabase comprises — dans
+[`SCREENS.md`](SCREENS.md).
+
+| Route | Accès | Fichier |
+| --- | --- | --- |
+| `/login` | public | `src/pages/LoginPage.tsx` |
+| `/dashboard` | privé | `src/pages/DashboardPage.tsx` |
+| `/settings` | privé | `src/pages/SettingsPage.tsx` |
+| `/sign/:token` | public, sans session | `src/pages/SignaturePage.tsx` |
+
+Statuts : ✅ complet · ⚠️ partiel · 🚧 placeholder « Bientôt »
+
+| # | Écran | Route | Fichier | Statut |
+| --- | --- | --- | --- | --- |
+| 1 | Connexion praticien | `/login` | `src/pages/LoginPage.tsx` | ✅ |
+| 2 | Tableau de bord — liste | `/dashboard` | `src/pages/DashboardPage.tsx` | ⚠️ relances non branchées |
+| 3 | Tutoriel 1re visite | `/dashboard` (modale) | `src/pages/DashboardPage.tsx` | ✅ |
+| 4 | Nouveau consentement | `/dashboard` (modale) | `src/components/dashboard/SendModal.tsx` | ✅ |
+| 5 | Limite de plan atteinte | `/dashboard` (modale) | `src/components/dashboard/SendModal.tsx` | ⚠️ |
+| 6 | Paramètres — Profil | `/settings` | `src/pages/SettingsPage.tsx` | ✅ |
+| 7 | Paramètres — Abonnement | `/settings` | `src/pages/SettingsPage.tsx` | ✅ |
+| 8 | Paramètres — Documents PDF | `/settings` | `src/pages/SettingsPage.tsx` | 🚧 |
+| 9 | Paramètres — Notifications | `/settings` | `src/pages/SettingsPage.tsx` | 🚧 |
+| 10 | Paramètres — Sécurité | `/settings` | `src/pages/SettingsPage.tsx` | 🚧 |
+| 11 | Profil praticien introuvable | routes privées | `src/components/layout/AppLayout.tsx` | ✅ |
+| 12 | Signature — chargement | `/sign/:token` | `src/pages/SignaturePage.tsx` | ✅ |
+| 13 | Signature — lien invalide | `/sign/:token` | `src/pages/SignaturePage.tsx` | ✅ |
+| 14 | Signature — déjà signé | `/sign/:token` | `src/pages/SignaturePage.tsx` | ✅ |
+| 15 | Signature — parcours | `/sign/:token` | `src/pages/SignaturePage.tsx` | ⚠️ vidéo placeholder |
+| 16 | Signature — confirmation | `/sign/:token` | `src/pages/SignaturePage.tsx` | ✅ |
+
+Écrans prévus mais non développés : Statistiques, Recherche patient, Relance de consentement.
+
+### Branches
+
+- `main` — branche de production, c'est elle qui est déployée sur Vercel.
+- `dev` — branche d'intégration : le travail en cours part de `dev` et remonte vers `main` par merge.
+
 ## Démarrage local
 
 ```bash
@@ -72,5 +113,9 @@ Voir l'arborescence dans `src/` — `pages/` (routes), `components/` (layout, da
 - RLS activée sur `doctors` et `consents`.
 - Token de signature = UUID généré par Postgres, jamais deviné.
 - `/sign/:token` est 100% public, aucune session Supabase requise.
-- Dark mode par défaut, toggle clair/sombre stocké dans `localStorage('woui_theme')`.
-- Sidebar 230px masquée sur mobile, bottom nav 3 boutons à la place.
+- Espace praticien : thème suivant la préférence système au premier chargement, choix manuel
+  stocké dans `localStorage('woui-theme')` et posé sur `<html>` avant le premier paint (`index.html`).
+- Espace patient : thème propre, clair par défaut, stocké dans `localStorage('woui_patient_theme')` —
+  il n'hérite pas du thème praticien.
+- Navigation praticien : header collant en haut de page (`src/components/layout/Header.tsx`),
+  qui se replie sur mobile. Pas de sidebar ni de bottom nav.
