@@ -1,5 +1,6 @@
 export type PlanId = 'starter' | 'pro' | 'clinic'
 export type ConsentStatus = 'sent' | 'opened' | 'viewed' | 'signed'
+export type BillingInterval = 'monthly' | 'yearly'
 export type PlanStatus = 'active' | 'cancelled' | 'past_due' | 'trialing'
 
 export interface Doctor {
@@ -12,8 +13,10 @@ export interface Doctor {
   phone: string | null
   plan: PlanId
   plan_status: PlanStatus
-  surecart_customer_id: string | null
-  surecart_subscription_id: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  stripe_price_id: string | null
+  billing_interval: BillingInterval | null
   consents_used_this_month: number
   subscribed_at: string
   plan_expires_at: string | null
@@ -43,6 +46,8 @@ export interface Plan {
   id: PlanId
   name: string
   price: number
+  /** Prix annuel (−20 %), en euros. */
+  yearlyPrice: number
   color: string
   accent: string
   popular?: boolean

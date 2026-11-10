@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignaturePage } from './pages/SignaturePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { SignupPage } from './pages/SignupPage'
 import { Spinner } from './components/ui/Spinner'
 
 export default function App() {
@@ -18,6 +19,12 @@ export default function App() {
 
       {/* Public — définition d'un nouveau mot de passe (lien email) */}
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Public — inscription praticien (essai gratuit) */}
+      <Route
+        path="/signup"
+        element={loading ? <FullScreenSpinner /> : user ? <Navigate to="/dashboard" replace /> : <SignupPage />}
+      />
 
       {/* Public — login praticien */}
       <Route

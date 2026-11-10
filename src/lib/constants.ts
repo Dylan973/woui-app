@@ -5,6 +5,7 @@ export const PLANS: Plan[] = [
     id: 'starter',
     name: 'Starter',
     price: 35,
+    yearlyPrice: 336,
     color: '#64748b',
     accent: '#94a3b8',
     limits: { consents: 10, templates: 1 },
@@ -21,6 +22,7 @@ export const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     price: 50,
+    yearlyPrice: 480,
     color: '#0ea5e9',
     accent: '#38bdf8',
     popular: true,
@@ -40,6 +42,7 @@ export const PLANS: Plan[] = [
     id: 'clinic',
     name: 'Clinique',
     price: 160,
+    yearlyPrice: 1536,
     color: '#a855f7',
     accent: '#c084fc',
     limits: { consents: 999999, templates: 999 },
@@ -80,4 +83,10 @@ export const PLAN_LIMITS_LABEL = (n: number) => (n >= 999999 ? '∞' : String(n)
 // Logo blanc (asset local, cf. /public) — lisible sur les fonds sombres du dashboard.
 export const WOUI_LOGO_URL = '/logo-mark-white.png'
 
-export const SURECART_PORTAL_URL = 'https://darkseagreen-aardvark-351969.hostingersite.com/customer-dashboard/'
+
+// Pages légales du site vitrine (à créer côté vitrine avant le lancement).
+// TODO : remplacer par le domaine définitif de la vitrine.
+export const LEGAL_URLS = {
+  cgu: 'https://woui.fr/cgu',
+  confidentialite: 'https://woui.fr/confidentialite',
+}

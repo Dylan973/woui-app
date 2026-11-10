@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -108,6 +108,13 @@ export function LoginPage() {
         >
           Mot de passe oublié ?
         </button>
+
+        <p className="mt-6 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
+          Pas encore de compte ?{' '}
+          <Link to="/signup" style={{ color: 'var(--text-accent)' }}>
+            Essai gratuit 14 jours
+          </Link>
+        </p>
       </div>
     </div>
   )

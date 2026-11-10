@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
-import { PLANS, PLAN_LIMITS_LABEL, SURECART_PORTAL_URL } from '../lib/constants'
+import { PLANS, PLAN_LIMITS_LABEL } from '../lib/constants'
+import { hasSubscription, openBillingPortal, startCheckout, trialDaysLeft } from '../lib/billing'
+import type { BillingInterval, PlanId } from '../types'
 import { countThisMonth } from '../lib/usage'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 
@@ -59,6 +61,34 @@ export function SettingsPage() {
     phone: doctor.phone ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [interval, setBillingInterval] = useState<BillingInterval>(doctor.billing_interval ?? 'monthly')
+  const [billingBusy, setBillingBusy] = useState<string | null>(null)
+
+  // Retour de Stripe Checkout : message de confirmation (le webhook met le plan à jour).
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      showToast('Paiement validé, merci ! Votre abonnement est actif.')
+      setSearchParams({ tab: 'plan' }, { replace: true })
+    }
+  }, [searchParams, setSearchParams, showToast])
+
+  const choosePlan = async (planId: PlanId) => {
+    setBillingBusy(planId)
+    const error = await startCheckout(planId, interval)
+    if (error) {
+      setBillingBusy(null)
+      showToast(error, 'warning')
+    }
+  }
+
+  const manageBilling = async () => {
+    setBillingBusy('portal')
+    const error = await openBillingPortal()
+    if (error) {
+      setBillingBusy(null)
+      showToast(error, 'warning')
+    }
+  }
 
   const set = <K extends keyof typeof form>(k: K, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -76,6 +106,17 @@ export function SettingsPage() {
   const limit = plan.limits.consents
   const usedThisMonth = countThisMonth(consents)
   const pct = Math.min(100, Math.round((usedThisMonth / (limit >= 999999 ? 100 : limit)) * 100))
+
+  const subscribed = hasSubscription(doctor)
+  const trialLeft = subscribed ? null : trialDaysLeft(doctor)
+  const statusLabel =
+    doctor.plan_status === 'trialing' && !subscribed
+      ? 'Essai gratuit'
+      : doctor.plan_status === 'cancelled'
+        ? 'Abonnement résilié'
+        : doctor.plan_status === 'past_due'
+          ? 'Paiement en échec'
+          : 'Plan actuel'
 
   const soonTitle = { documents: 'Documents PDF', notifications: 'Notifications', security: 'Sécurité' }[tab as string]
 
@@ -152,11 +193,28 @@ export function SettingsPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                  Plan actuel
+                  {statusLabel}
                 </div>
                 <div className="font-display mt-2 text-[26px]" style={{ color: 'var(--text-primary)' }}>
-                  {plan.name} — {plan.price} € / mois
+                  {plan.name}
+                  {subscribed && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {' '}— {doctor.billing_interval === 'yearly' ? `${plan.yearlyPrice} € / an` : `${plan.price} € / mois`}
+                    </span>
+                  )}
                 </div>
+                {trialLeft !== null && (
+                  <div className="mt-2 text-[0.9375rem]" style={{ color: trialLeft <= 3 ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
+                    {trialLeft > 0
+                      ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}. Choisissez un plan pour continuer après l'essai.`
+                      : 'Votre essai gratuit est terminé. Choisissez un plan pour continuer à envoyer des consentements.'}
+                  </div>
+                )}
+                {doctor.plan_status === 'past_due' && (
+                  <div className="mt-2 text-[0.9375rem]" style={{ color: 'var(--danger-text)' }}>
+                    Le dernier paiement a échoué. Mettez à jour votre carte pour éviter l'interruption du service.
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="font-display text-[26px]" style={{ color: 'var(--text-primary)' }}>
@@ -173,11 +231,37 @@ export function SettingsPage() {
                 style={{ width: `${pct}%`, background: 'var(--action-accent)', animation: 'nb-grow 1s var(--ease-standard) 0.2s both' }}
               />
             </div>
+            {doctor.stripe_customer_id && (
+              <div className="mt-5">
+                <Button variant="ghost" onClick={manageBilling} disabled={billingBusy !== null}>
+                  {billingBusy === 'portal' ? 'Ouverture…' : 'Factures, carte et résiliation'}
+                </Button>
+              </div>
+            )}
           </div>
+
+          {!subscribed && (
+            <div className="mb-5 flex items-center justify-center gap-1">
+              {(['monthly', 'yearly'] as const).map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setBillingInterval(value)}
+                  className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px]"
+                  style={{
+                    background: interval === value ? 'var(--action-primary)' : 'transparent',
+                    color: interval === value ? 'var(--action-primary-text)' : 'var(--text-muted)',
+                    border: interval === value ? 'none' : '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {value === 'monthly' ? 'Mensuel' : 'Annuel −20 %'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="grid gap-[22px] sm:grid-cols-3">
             {PLANS.map((p) => {
-              const isCurrent = p.id === doctor.plan
+              const isCurrent = p.id === doctor.plan && (subscribed || trialLeft !== null)
               return (
                 <div
                   key={p.id}
@@ -193,7 +277,7 @@ export function SettingsPage() {
                       className="font-mono absolute right-0 top-0 px-[10px] py-[5px] text-[10px] uppercase tracking-[0.12em]"
                       style={{ background: 'var(--action-accent)', color: 'var(--action-accent-text)' }}
                     >
-                      Actuel
+                      {subscribed ? 'Actuel' : 'Essai'}
                     </span>
                   )}
                   <div>
@@ -204,10 +288,10 @@ export function SettingsPage() {
                       {p.name}
                     </div>
                     <div className="font-display mt-[10px] text-[38px]" style={{ color: 'var(--text-primary)' }}>
-                      {p.price} €
+                      {interval === 'yearly' && !subscribed ? `${p.yearlyPrice} €` : `${p.price} €`}
                     </div>
                     <div className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                      par mois
+                      {interval === 'yearly' && !subscribed ? `par an, soit ${Math.round(p.yearlyPrice / 12)} € / mois` : 'par mois'}
                     </div>
                   </div>
                   <div
@@ -219,7 +303,7 @@ export function SettingsPage() {
                     ))}
                   </div>
                   <div className="mt-auto">
-                    {isCurrent ? (
+                    {subscribed && isCurrent ? (
                       <button
                         disabled
                         className="w-full cursor-not-allowed rounded-[3px] py-[10px] text-[0.8125rem]"
@@ -228,15 +312,14 @@ export function SettingsPage() {
                         Plan actuel
                       </button>
                     ) : (
-                      <a
-                        href={SURECART_PORTAL_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full rounded-[3px] py-[10px] text-center text-[0.8125rem] font-semibold"
-                        style={{ background: 'var(--action-primary)', color: 'var(--action-primary-text)' }}
+                      <Button
+                        variant="primary"
+                        className="w-full justify-center"
+                        disabled={billingBusy !== null}
+                        onClick={() => (subscribed ? manageBilling() : choosePlan(p.id))}
                       >
-                        Changer →
-                      </a>
+                        {billingBusy === p.id ? 'Redirection…' : subscribed ? 'Changer de plan' : `Choisir ${p.name}`}
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -244,7 +327,8 @@ export function SettingsPage() {
             })}
           </div>
           <p className="mt-5 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
-            La gestion de l'abonnement se fait via le portail client SureCart.
+            Paiement sécurisé par Stripe. Sans engagement, résiliable à tout moment depuis cet écran.
+            {trialLeft !== null && trialLeft > 2 && ' Aucun prélèvement avant la fin de votre essai.'}
           </p>
         </div>
       )}

@@ -7,6 +7,7 @@ import { Spinner } from '../ui/Spinner'
 import { useConsents } from '../../hooks/useConsents'
 import { PLANS } from '../../lib/constants'
 import { countThisMonth } from '../../lib/usage'
+import { hasSubscription, trialDaysLeft } from '../../lib/billing'
 import type { Doctor } from '../../types'
 
 export interface DashboardOutletContext {
@@ -65,6 +66,17 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
 
   const plan = PLANS.find((p) => p.id === doctor.plan) ?? PLANS[0]
   const showToast = (msg: string, type: ToastType = 'success') => setToast({ msg, type })
+  const trialLeft = hasSubscription(doctor) ? null : trialDaysLeft(doctor)
+  const billingAlert =
+    trialLeft !== null
+      ? trialLeft > 0
+        ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}.`
+        : 'Votre essai gratuit est terminé.'
+      : doctor.plan_status === 'past_due'
+        ? 'Le dernier paiement a échoué.'
+        : doctor.plan_status === 'cancelled'
+          ? 'Votre abonnement est résilié.'
+          : null
 
   const outletContext: DashboardOutletContext = {
     doctor,
@@ -78,6 +90,21 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface-page)', color: 'var(--text-primary)' }}>
+      {billingAlert && (
+        <div
+          className="flex flex-wrap items-center justify-center gap-3 px-4 py-2 text-center text-[13px]"
+          style={{ background: 'var(--surface-card-alt)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+        >
+          <span>{billingAlert}</span>
+          <button
+            onClick={() => navigate('/settings?tab=plan')}
+            className="cursor-pointer font-semibold"
+            style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+          >
+            {trialLeft !== null ? 'Choisir mon plan →' : 'Régler maintenant →'}
+          </button>
+        </div>
+      )}
       <Header doctor={doctor} consents={consents} onOpenSendModal={() => setShowSend(true)} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
 
       <main style={{ padding: '40px 34px 90px', maxWidth: 1520, margin: '0 auto' }} className="!px-[clamp(1rem,4vw,34px)]">
