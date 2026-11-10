@@ -38,7 +38,12 @@ export interface Consent {
   viewed_at: string | null
   signed_at: string | null
   signature_data: string | null
+  /** Chemin du PDF signé dans le stockage privé `consents`. */
   pdf_url: string | null
+  signed_ip: string | null
+  signed_user_agent: string | null
+  /** Empreinte SHA-256 du PDF signé. */
+  document_hash: string | null
   created_at: string
 }
 

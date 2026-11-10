@@ -245,14 +245,17 @@ export function SignaturePage() {
     }
     setSigning(true)
     setSignError(null)
-    const { data, error } = await supabase.rpc('sign_consent', { p_token: token, p_signature: dataUrl })
+    // Signature côté serveur : horodatage, IP, appareil, PDF signé et empreinte.
+    const { data, error } = await supabase.functions.invoke('sign-consent', {
+      body: { token, signature: dataUrl },
+    })
     setSigning(false)
-    const signed = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+    const signed = (data as { consent?: Partial<Consent> } | null)?.consent
     if (error || !signed) {
       setSignError("Erreur lors de l'enregistrement de la signature. Vérifiez que la vidéo a bien été visionnée, puis réessayez.")
       return
     }
-    setConsent(signed)
+    setConsent((c) => (c ? { ...c, ...signed } : c))
     setJustSigned(true)
   }
 

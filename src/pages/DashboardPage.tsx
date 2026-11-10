@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
+import { supabase } from '../lib/supabase'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import type { Consent, ConsentStatus } from '../types'
 
@@ -88,6 +89,19 @@ export function DashboardPage() {
       .map((c) => (new Date(c.signed_at!).getTime() - new Date(c.sent_at).getTime()) / 60000)
     return median(durations)
   }, [consents])
+
+  // Les PDF sont dans un stockage privé : lien temporaire (60 s) généré à la demande.
+  const downloadPdf = async (consent: Consent) => {
+    if (!consent.pdf_url) return
+    const { data, error } = await supabase.storage.from('consents').createSignedUrl(consent.pdf_url, 60, {
+      download: `consentement-${consent.patient.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+    })
+    if (error || !data?.signedUrl) {
+      showToast('Le PDF est momentanément indisponible. Réessayez dans un instant.', 'warning')
+      return
+    }
+    window.location.assign(data.signedUrl)
+  }
 
   const handleResend = async (consent: Consent) => {
     setResendingId(consent.id)
@@ -325,15 +339,13 @@ export function DashboardPage() {
                   >
                     {c.status === 'signed' ? (
                       c.pdf_url ? (
-                        <a
-                          href={c.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[0.8125rem]"
-                          style={{ color: 'var(--text-secondary)' }}
+                        <button
+                          onClick={() => downloadPdf(c)}
+                          className="cursor-pointer text-[0.8125rem]"
+                          style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
                         >
-                          Télécharger le PDF
-                        </a>
+                          Télécharger le PDF signé
+                        </button>
                       ) : (
                         <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
                           PDF en préparation
