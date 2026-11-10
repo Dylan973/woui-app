@@ -7,7 +7,7 @@
 // Prérequis : secret STRIPE_SECRET_KEY enregistré dans Supabase.
 import { admin, APP_URL, corsHeaders, json, notConfigured, stripe, stripeConfigured } from '../_shared/stripe.ts'
 
-const ADMINS = (Deno.env.get('ADMIN_EMAILS') ?? 'digitalee.art@gmail.com').split(',').map((e) => e.trim().toLowerCase())
+const ADMINS = (Deno.env.get('ADMIN_EMAILS') ?? 'digitalee.art@gmail.com,didi-973@live.fr').split(',').map((e) => e.trim().toLowerCase())
 const WEBHOOK_URL = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stripe-webhook`
 const EVENTS = [
   'checkout.session.completed',
