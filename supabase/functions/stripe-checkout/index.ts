@@ -1,12 +1,13 @@
 // Crée une session Stripe Checkout pour souscrire un abonnement Woui.
 // Si un abonnement existe déjà, renvoie vers le portail client (changement de plan).
-import { APP_URL, portalConfigurationId, admin, corsHeaders, currentDoctor, json, lookupKey, stripe, type Interval, type PlanId } from '../_shared/stripe.ts'
+import { APP_URL, notConfigured, portalConfigurationId, stripeConfigured, admin, corsHeaders, currentDoctor, json, lookupKey, stripe, type Interval, type PlanId } from '../_shared/stripe.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405)
 
   try {
+    if (!stripeConfigured) return notConfigured()
     const doctor = await currentDoctor(req)
     if (!doctor) return json({ error: 'Connexion requise' }, 401)
 

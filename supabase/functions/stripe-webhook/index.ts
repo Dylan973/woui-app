@@ -5,7 +5,14 @@
 import Stripe from 'npm:stripe@17.7.0'
 import { admin, parseLookupKey, stripe } from '../_shared/stripe.ts'
 
-const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
+// Secret du webhook : variable d'environnement, sinon celui enregistré par stripe-setup.
+let webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
+async function loadWebhookSecret() {
+  if (webhookSecret) return webhookSecret
+  const { data } = await admin.from('app_secrets').select('value').eq('key', 'stripe_webhook_secret').maybeSingle()
+  webhookSecret = data?.value ?? ''
+  return webhookSecret
+}
 const cryptoProvider = Stripe.createSubtleCryptoProvider()
 
 function mapStatus(status: Stripe.Subscription.Status): 'active' | 'trialing' | 'past_due' | 'cancelled' {
@@ -56,7 +63,7 @@ async function syncSubscription(sub: Stripe.Subscription) {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Méthode non autorisée', { status: 405 })
-  if (!webhookSecret) {
+  if (!(await loadWebhookSecret())) {
     console.error('STRIPE_WEBHOOK_SECRET manquant')
     return new Response('Webhook non configuré', { status: 500 })
   }

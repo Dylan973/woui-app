@@ -2,9 +2,19 @@
 import Stripe from 'npm:stripe@17.7.0'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-export const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+const STRIPE_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? ''
+
+/** false tant que STRIPE_SECRET_KEY n'est pas enregistré dans les secrets Supabase. */
+export const stripeConfigured = STRIPE_KEY.startsWith('sk_')
+
+// Clé factice si absente : évite un plantage au démarrage, chaque fonction
+// vérifie `stripeConfigured` et répond un message clair.
+export const stripe = new Stripe(stripeConfigured ? STRIPE_KEY : 'sk_test_non_configure', {
   httpClient: Stripe.createFetchHttpClient(),
 })
+
+export const notConfigured = () =>
+  json({ error: "Le paiement n'est pas encore activé sur Woui. Réessayez plus tard ou contactez le support." }, 503)
 
 export const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 
