@@ -93,14 +93,15 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
             patient: form.patient,
             email: form.email,
             procedure: form.procedure,
-            status: 'sent',
-            video_progress: 0,
           },
         ])
         .select()
         .single()
 
-      if (insertError) return { error: insertError.message }
+      if (insertError) {
+        // Le quota et l'état de l'abonnement sont vérifiés côté base (trigger).
+        return { error: insertError.message }
+      }
 
       const consent = data as Consent
 
@@ -109,13 +110,7 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
 
       // Déclenche l'envoi de l'email au patient (Edge Function).
       const { error: fnError } = await supabase.functions.invoke('send-consent', {
-        body: {
-          consentId: consent.id,
-          patientEmail: consent.email,
-          patientName: consent.patient,
-          procedure: consent.procedure,
-          token: consent.token,
-        },
+        body: { consentId: consent.id },
       })
 
       if (fnError) {
@@ -132,13 +127,7 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
   // reste valide tant que le consentement n'est pas signé.
   const resendConsent = useCallback(async (consent: Consent) => {
     const { error: fnError } = await supabase.functions.invoke('send-consent', {
-      body: {
-        consentId: consent.id,
-        patientEmail: consent.email,
-        patientName: consent.patient,
-        procedure: consent.procedure,
-        token: consent.token,
-      },
+      body: { consentId: consent.id },
     })
     return { error: fnError ? fnError.message : null }
   }, [])

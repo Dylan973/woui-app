@@ -6,6 +6,7 @@ import { Toast, type ToastType } from '../ui/Toast'
 import { Spinner } from '../ui/Spinner'
 import { useConsents } from '../../hooks/useConsents'
 import { PLANS } from '../../lib/constants'
+import { countThisMonth } from '../../lib/usage'
 import type { Doctor } from '../../types'
 
 export interface DashboardOutletContext {
@@ -92,7 +93,7 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
             return result
           }}
           planId={doctor.plan}
-          used={consents.length}
+          used={countThisMonth(consents)}
           limit={plan.limits.consents}
         />
       )}

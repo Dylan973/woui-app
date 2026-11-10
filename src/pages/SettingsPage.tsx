@@ -4,6 +4,7 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { PLANS, PLAN_LIMITS_LABEL, SURECART_PORTAL_URL } from '../lib/constants'
+import { countThisMonth } from '../lib/usage'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 
 type TabId = 'profile' | 'documents' | 'plan' | 'notifications' | 'security'
@@ -73,7 +74,8 @@ export function SettingsPage() {
 
   const plan = PLANS.find((p) => p.id === doctor.plan) ?? PLANS[0]
   const limit = plan.limits.consents
-  const pct = Math.min(100, Math.round((consents.length / (limit >= 999999 ? 100 : limit)) * 100))
+  const usedThisMonth = countThisMonth(consents)
+  const pct = Math.min(100, Math.round((usedThisMonth / (limit >= 999999 ? 100 : limit)) * 100))
 
   const soonTitle = { documents: 'Documents PDF', notifications: 'Notifications', security: 'Sécurité' }[tab as string]
 
@@ -158,7 +160,7 @@ export function SettingsPage() {
               </div>
               <div className="text-right">
                 <div className="font-display text-[26px]" style={{ color: 'var(--text-primary)' }}>
-                  {consents.length} <span className="text-[17px]" style={{ color: 'var(--text-muted)' }}>/ {PLAN_LIMITS_LABEL(limit)}</span>
+                  {usedThisMonth} <span className="text-[17px]" style={{ color: 'var(--text-muted)' }}>/ {PLAN_LIMITS_LABEL(limit)}</span>
                 </div>
                 <div className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
                   consentements ce mois

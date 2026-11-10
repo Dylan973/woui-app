@@ -182,27 +182,25 @@ export function SignaturePage() {
     let cancelled = false
 
     async function load() {
-      const { data, error } = await supabase.from('consents').select('*').eq('token', token).maybeSingle()
+      // Accès patient uniquement via les fonctions sécurisées par token (RPC) :
+      // la table `consents` n'est plus lisible directement par un visiteur anonyme.
+      const { data, error } = await supabase.rpc('get_consent_by_token', { p_token: token })
       if (cancelled) return
 
-      if (error || !data) {
+      const row = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+      if (error || !row) {
         setState('not-found')
         return
       }
 
-      const row = data as Consent
       setConsent(row)
       setState('ready')
 
       // Première ouverture du lien -> statut "opened".
       if (row.status === 'sent') {
-        const { data: updated } = await supabase
-          .from('consents')
-          .update({ status: 'opened', opened_at: new Date().toISOString() })
-          .eq('token', token)
-          .select()
-          .single()
-        if (!cancelled && updated) setConsent(updated as Consent)
+        const { data: updated } = await supabase.rpc('mark_consent_opened', { p_token: token })
+        const next = (Array.isArray(updated) ? updated[0] : updated) as Consent | undefined
+        if (!cancelled && next) setConsent(next)
       }
     }
 
@@ -227,19 +225,15 @@ export function SignaturePage() {
   const handleVideoProgress = async (pct: number) => {
     if (!token) return
     setLiveProgress(pct)
-    const { data } = await supabase.from('consents').update({ video_progress: pct }).eq('token', token).select().single()
-    if (data) setConsent(data as Consent)
+    await supabase.rpc('update_consent_video_progress', { p_token: token, p_progress: pct })
+    setConsent((c) => (c ? { ...c, video_progress: Math.max(c.video_progress ?? 0, pct) } : c))
   }
 
   const handleVideoViewed = async () => {
     if (!token) return
-    const { data } = await supabase
-      .from('consents')
-      .update({ status: 'viewed', viewed_at: new Date().toISOString() })
-      .eq('token', token)
-      .select()
-      .single()
-    if (data) setConsent(data as Consent)
+    const { data } = await supabase.rpc('mark_consent_viewed', { p_token: token })
+    const next = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+    if (next) setConsent(next)
   }
 
   const handleSign = async () => {
@@ -251,18 +245,14 @@ export function SignaturePage() {
     }
     setSigning(true)
     setSignError(null)
-    const { data, error } = await supabase
-      .from('consents')
-      .update({ status: 'signed', signed_at: new Date().toISOString(), signature_data: dataUrl })
-      .eq('token', token)
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('sign_consent', { p_token: token, p_signature: dataUrl })
     setSigning(false)
-    if (error) {
-      setSignError("Erreur lors de l'enregistrement de la signature. Réessayez.")
+    const signed = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+    if (error || !signed) {
+      setSignError("Erreur lors de l'enregistrement de la signature. Vérifiez que la vidéo a bien été visionnée, puis réessayez.")
       return
     }
-    setConsent(data as Consent)
+    setConsent(signed)
     setJustSigned(true)
   }
 

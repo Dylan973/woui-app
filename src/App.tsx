@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignaturePage } from './pages/SignaturePage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { Spinner } from './components/ui/Spinner'
 
 export default function App() {
@@ -14,6 +15,9 @@ export default function App() {
     <Routes>
       {/* Public — accès patient via token, aucune authentification */}
       <Route path="/sign/:token" element={<SignaturePage />} />
+
+      {/* Public — définition d'un nouveau mot de passe (lien email) */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Public — login praticien */}
       <Route
@@ -53,7 +57,7 @@ export default function App() {
 
 function FullScreenSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#050a14' }}>
+    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
       <Spinner />
     </div>
   )

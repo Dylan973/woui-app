@@ -35,7 +35,7 @@ export function LoginPage() {
     }
     setError(null)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${import.meta.env.VITE_APP_URL}/login`,
+      redirectTo: `${window.location.origin}/reset-password`,
     })
     if (resetError) setError(resetError.message)
     else setResetSent(true)
