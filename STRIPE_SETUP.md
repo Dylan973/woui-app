@@ -5,7 +5,7 @@ SureCart est retiré. Abonnements, essai gratuit et facturation passent par Stri
 ## Comment ça marche
 
 1. Le dentiste crée son compte sur `/signup` (ou `/signup?plan=pro` depuis la vitrine) :
-   **14 jours d'essai, sans carte**. Sa fiche `doctors` est créée automatiquement
+   **7 jours d'essai, sans carte**. Sa fiche `doctors` est créée automatiquement
    (`plan_status = trialing`).
 2. Dans **Paramètres → Abonnement**, il choisit un plan (mensuel ou annuel −20 %) :
    fonction `stripe-checkout` → page de paiement Stripe. Les jours d'essai restants

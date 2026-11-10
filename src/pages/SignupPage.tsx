@@ -9,7 +9,7 @@ import type { PlanId } from '../types'
 const isPlanId = (v: string | null): v is PlanId => v === 'starter' || v === 'pro' || v === 'clinic'
 
 /**
- * Inscription en libre-service : 14 jours d'essai gratuit, sans carte bancaire.
+ * Inscription en libre-service : 7 jours d'essai gratuit, sans carte bancaire.
  * La fiche praticien est créée automatiquement côté base (trigger on_auth_user_created).
  * Le site vitrine peut lier directement /signup?plan=starter|pro|clinic.
  */
@@ -83,7 +83,7 @@ export function SignupPage() {
         </h1>
         <p className="text-[0.9375rem] leading-[1.6]" style={{ color: 'var(--text-secondary)' }}>
           Nous avons envoyé un lien de confirmation à <b>{sentTo}</b>. Cliquez dessus pour activer votre compte et démarrer vos
-          14 jours d'essai.
+          7 jours d'essai.
         </p>
         <Link to="/login" className="text-[13px]" style={{ color: 'var(--text-accent)' }}>
           Retour à la connexion
@@ -95,7 +95,7 @@ export function SignupPage() {
   return card(
     <>
       <h1 className="font-display text-[1.75rem]" style={{ color: 'var(--text-primary)' }}>
-        Essai gratuit 14 jours
+        Essai gratuit 7 jours
       </h1>
       <p className="text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
         Sans carte bancaire. Votre premier consentement part en 2 minutes.

@@ -112,7 +112,7 @@ export function LoginPage() {
         <p className="mt-6 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
           Pas encore de compte ?{' '}
           <Link to="/signup" style={{ color: 'var(--text-accent)' }}>
-            Essai gratuit 14 jours
+            Essai gratuit 7 jours
           </Link>
         </p>
       </div>
