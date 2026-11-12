@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { SignaturePage } from './pages/SignaturePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SignupPage } from './pages/SignupPage'
+import { ProfilesPage } from './pages/ProfilesPage'
 import { Spinner } from './components/ui/Spinner'
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profiles" element={<ProfilesPage />} />
       </Route>
 
       <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />

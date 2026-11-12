@@ -28,6 +28,7 @@ function json(body: unknown, status = 200) {
 interface ConsentRow {
   id: string
   doctor_id: string
+  practitioner_id: string | null
   patient: string
   email: string
   procedure: string
@@ -194,7 +195,17 @@ Deno.serve(async (req) => {
         .select('first_name, last_name, specialty, phone')
         .eq('id', consent.doctor_id)
         .maybeSingle()
-      const bytes = await buildPdf(consent, doctor ?? {}, decodeDataUrl(signature), ip, ua)
+      // Offre Clinique : le PDF porte le nom du profil praticien qui a envoyé le consentement.
+      let signer: Record<string, string | null> = doctor ?? {}
+      if (consent.practitioner_id) {
+        const { data: practitioner } = await admin
+          .from('practitioners')
+          .select('first_name, last_name, specialty')
+          .eq('id', consent.practitioner_id)
+          .maybeSingle()
+        if (practitioner) signer = { ...signer, ...practitioner }
+      }
+      const bytes = await buildPdf(consent, signer, decodeDataUrl(signature), ip, ua)
       const hash = await sha256Hex(bytes)
       const path = `${consent.doctor_id}/${consent.id}.pdf`
       const { error: uploadError } = await admin.storage

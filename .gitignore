@@ -27,3 +27,7 @@ yarn-error.log*
 supabase/.branches
 supabase/.temp
 .vercel
+
+# Ressources et archives locales (non versionnées)
+_ressources/
+_archives/

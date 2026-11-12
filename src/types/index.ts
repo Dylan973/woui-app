@@ -44,7 +44,39 @@ export interface Consent {
   signed_user_agent: string | null
   /** Empreinte SHA-256 du PDF signé. */
   document_hash: string | null
+  /** Profil praticien qui a envoyé le consentement (null = titulaire du compte). */
+  practitioner_id: string | null
   created_at: string
+}
+
+/** Profil praticien ajouté à un compte Clinique. */
+export interface Practitioner {
+  id: string
+  doctor_id: string
+  first_name: string
+  last_name: string
+  specialty: string
+  color: string
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Profil affiché dans l'app : le titulaire du compte (id « main ») ou un praticien ajouté. */
+export interface Profile {
+  id: string
+  first_name: string
+  last_name: string
+  specialty: string
+  color: string
+  isMain: boolean
+}
+
+export interface ProfileForm {
+  first_name: string
+  last_name: string
+  specialty: string
+  color: string
 }
 
 export interface Plan {

@@ -6,7 +6,7 @@ interface UseConsentsResult {
   consents: Consent[]
   loading: boolean
   error: string | null
-  sendConsent: (form: NewConsentForm) => Promise<{ error: string | null }>
+  sendConsent: (form: NewConsentForm, practitionerId?: string | null) => Promise<{ error: string | null }>
   resendConsent: (consent: Consent) => Promise<{ error: string | null }>
   refetch: () => Promise<void>
 }
@@ -82,7 +82,7 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
   }, [doctorId])
 
   const sendConsent = useCallback(
-    async (form: NewConsentForm) => {
+    async (form: NewConsentForm, practitionerId: string | null = null) => {
       if (!doctorId) return { error: 'Praticien non identifié.' }
 
       const { data, error: insertError } = await supabase
@@ -93,6 +93,8 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
             patient: form.patient,
             email: form.email,
             procedure: form.procedure,
+            // Profil praticien qui envoie (offre Clinique) ; absent = titulaire du compte.
+            ...(practitionerId ? { practitioner_id: practitionerId } : {}),
           },
         ])
         .select()

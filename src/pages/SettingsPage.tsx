@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -9,10 +9,11 @@ import type { BillingInterval, PlanId } from '../types'
 import { countThisMonth } from '../lib/usage'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 
-type TabId = 'profile' | 'documents' | 'plan' | 'notifications' | 'security'
+type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'security'
 
 const TABS: { id: TabId; label: string; soon?: boolean }[] = [
   { id: 'profile', label: 'Profil' },
+  { id: 'team', label: 'Équipe' },
   { id: 'documents', label: 'Documents PDF', soon: true },
   { id: 'plan', label: 'Abonnement' },
   { id: 'notifications', label: 'Notifications', soon: true },
@@ -47,7 +48,8 @@ function Eyebrow({ children }: { children: string }) {
 }
 
 export function SettingsPage() {
-  const { doctor, consents, showToast } = useOutletContext<DashboardOutletContext>()
+  const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
+  const navigate = useNavigate()
   // L'onglet vit dans l'URL : « Voir les plans » (modale de limite atteinte) ouvre
   // directement /settings?tab=plan, et le lien reste partageable.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -98,6 +100,7 @@ export function SettingsPage() {
       .from('doctors')
       .update({ ...form, updated_at: new Date().toISOString() })
       .eq('id', doctor.id)
+    if (!error) await refetchDoctor()
     setSaving(false)
     showToast(error ? `Erreur : ${error.message}` : 'Profil enregistré', error ? 'warning' : 'success')
   }
@@ -183,6 +186,42 @@ export function SettingsPage() {
             <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
               {doctor.email} — non modifiable
             </span>
+          </div>
+        </div>
+      )}
+
+      {tab === 'team' && (
+        <div
+          className="p-[clamp(1.5rem,4vw,36px)]"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
+              Profils praticiens
+            </h2>
+            {!profilesEnabled && (
+              <span
+                className="font-mono rounded-[3px] px-2 py-[3px] text-[10px] uppercase tracking-[0.1em]"
+                style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}
+              >
+                Abonnement Clinique
+              </span>
+            )}
+          </div>
+          <p className="mb-6 mt-[6px] max-w-[620px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+            {profilesEnabled
+              ? `Votre cabinet compte ${profiles.length} profil${profiles.length > 1 ? 's' : ''}. Chaque praticien choisit le sien à l'ouverture de Woui et retrouve ses propres consentements.`
+              : 'Avec l’abonnement Clinique, chaque praticien du cabinet a son profil : son nom sur les emails et les consentements signés, et ses propres envois.'}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="primary" onClick={() => navigate(profilesEnabled ? '/profiles?gerer=1' : '/profiles')}>
+              {profilesEnabled ? 'Gérer les profils' : 'Voir les profils'}
+            </Button>
+            {!profilesEnabled && (
+              <Button variant="ghost" onClick={() => setTab('plan')}>
+                Voir l'offre Clinique
+              </Button>
+            )}
           </div>
         </div>
       )}

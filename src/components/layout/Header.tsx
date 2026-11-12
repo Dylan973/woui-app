@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import type { Consent, Doctor } from '../../types'
+import type { Consent, Doctor, Profile } from '../../types'
 import { WOUI_LOGO_URL } from '../../lib/constants'
 import { Button } from '../ui/Button'
+import { profileInitials, profileName } from '../../lib/profiles'
 
 interface HeaderProps {
   doctor: Doctor
   consents: Consent[]
+  activeProfile: Profile
+  profilesEnabled: boolean
+  multiProfile: boolean
   onOpenSendModal: () => void
   onSignOut: () => void
 }
@@ -26,16 +30,10 @@ function useTheme() {
   return { theme, toggle: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')) }
 }
 
-function getInitials(firstName: string | null, lastName: string | null): string {
-  const first = firstName?.trim()?.[0] ?? ''
-  const last = lastName?.trim()?.[0] ?? ''
-  return (`${first}${last}`.toUpperCase() || 'DR').slice(0, 2)
-}
-
 const NAV_ITEM =
   'border-0 bg-transparent px-4 py-2 rounded-[3px] cursor-pointer text-[0.8125rem] tracking-[0.06em] whitespace-nowrap transition-colors'
 
-export function Header({ doctor, consents, onOpenSendModal, onSignOut }: HeaderProps) {
+export function Header({ consents, activeProfile, profilesEnabled, multiProfile, onOpenSendModal, onSignOut }: HeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
@@ -212,16 +210,45 @@ export function Header({ doctor, consents, onOpenSendModal, onSignOut }: HeaderP
         <div className="relative" ref={avatarRef}>
           <button
             onClick={() => setAvatarOpen((v) => !v)}
+            title={profileName(activeProfile)}
+            aria-label={`Menu du profil ${profileName(activeProfile)}`}
             className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-full text-[12px]"
-            style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            style={
+              multiProfile
+                ? { background: activeProfile.color, border: '1px solid transparent', color: '#fff', fontWeight: 600 }
+                : { background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }
+            }
           >
-            {getInitials(doctor.first_name, doctor.last_name)}
+            {profileInitials(activeProfile)}
           </button>
           {avatarOpen && (
             <div
-              className="absolute right-0 top-[calc(100%+10px)] z-[60] w-44 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-1"
+              className="absolute right-0 top-[calc(100%+10px)] z-[60] w-56 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-1"
               style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
+              <div className="px-3 pb-2 pt-[10px]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <div className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {profileName(activeProfile)}
+                </div>
+                <div className="truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>
+                  {activeProfile.specialty}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setAvatarOpen(false)
+                  navigate('/profiles')
+                }}
+                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-[3px] px-3 py-2 text-left text-[13px]"
+                style={{ background: 'none', border: 0, color: 'var(--text-primary)' }}
+              >
+                {multiProfile ? 'Changer de profil' : 'Profils praticiens'}
+                {!profilesEnabled && (
+                  <span className="font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-accent)' }}>
+                    Clinique
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => {
                   setAvatarOpen(false)

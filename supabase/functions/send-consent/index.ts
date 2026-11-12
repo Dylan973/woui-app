@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: consent, error: consentError } = await admin
       .from('consents')
-      .select('id, patient, email, token, status, doctors!inner(user_id, first_name, last_name, specialty)')
+      .select('id, patient, email, token, status, doctors!inner(user_id, first_name, last_name, specialty), practitioners(first_name, last_name, specialty)')
       .eq('id', consentId)
       .maybeSingle()
 
@@ -102,11 +102,14 @@ Deno.serve(async (req: Request) => {
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) return json({ error: "Service d'email non configuré" }, 500)
 
-    const doctorName = ['Dr', doctor.first_name, doctor.last_name].filter(Boolean).join(' ').trim()
+    // Offre Clinique : l'email part au nom du profil praticien qui a envoyé le consentement.
+    const sender =
+      (consent.practitioners as unknown as { first_name: string | null; last_name: string | null; specialty: string | null } | null) ?? doctor
+    const doctorName = ['Dr', sender.first_name, sender.last_name].filter(Boolean).join(' ').trim()
     const html = renderEmail({
       patient: consent.patient,
       doctorName: doctorName === 'Dr' ? 'Votre cabinet dentaire' : doctorName,
-      specialty: doctor.specialty ?? '',
+      specialty: sender.specialty ?? '',
       link: `${APP_URL}/sign/${encodeURIComponent(consent.token)}`,
     })
 

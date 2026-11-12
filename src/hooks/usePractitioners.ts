@@ -1,0 +1,84 @@
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import type { Practitioner, ProfileForm } from '../types'
+
+interface UsePractitionersResult {
+  /** Profils ajoutés (hors titulaire du compte), archivés compris. */
+  practitioners: Practitioner[]
+  loading: boolean
+  createPractitioner: (form: ProfileForm) => Promise<{ error: string | null }>
+  updatePractitioner: (id: string, form: ProfileForm) => Promise<{ error: string | null }>
+  archivePractitioner: (id: string) => Promise<{ error: string | null }>
+}
+
+/**
+ * Profils praticiens d'un compte (offre Clinique).
+ * Les règles (offre requise, nombre maximum) sont appliquées côté base.
+ */
+export function usePractitioners(doctorId: string | null): UsePractitionersResult {
+  const [practitioners, setPractitioners] = useState<Practitioner[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchAll = useCallback(async () => {
+    if (!doctorId) {
+      setPractitioners([])
+      setLoading(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('practitioners')
+      .select('*')
+      .eq('doctor_id', doctorId)
+      .order('created_at', { ascending: true })
+    if (!error) setPractitioners((data ?? []) as Practitioner[])
+    setLoading(false)
+  }, [doctorId])
+
+  useEffect(() => {
+    void fetchAll()
+  }, [fetchAll])
+
+  const clean = (form: ProfileForm) => ({
+    first_name: form.first_name.trim(),
+    last_name: form.last_name.trim(),
+    specialty: form.specialty.trim() || 'Chirurgien-dentiste',
+    color: form.color,
+  })
+
+  const createPractitioner = useCallback(
+    async (form: ProfileForm) => {
+      if (!doctorId) return { error: 'Compte non identifié.' }
+      const { error } = await supabase.from('practitioners').insert([{ doctor_id: doctorId, ...clean(form) }])
+      if (!error) await fetchAll()
+      return { error: error ? error.message : null }
+    },
+    [doctorId, fetchAll]
+  )
+
+  const updatePractitioner = useCallback(
+    async (id: string, form: ProfileForm) => {
+      const { error } = await supabase
+        .from('practitioners')
+        .update({ ...clean(form), updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (!error) await fetchAll()
+      return { error: error ? error.message : null }
+    },
+    [fetchAll]
+  )
+
+  // Un profil ne se supprime pas : ses consentements doivent rester attribués à son nom.
+  const archivePractitioner = useCallback(
+    async (id: string) => {
+      const { error } = await supabase
+        .from('practitioners')
+        .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (!error) await fetchAll()
+      return { error: error ? error.message : null }
+    },
+    [fetchAll]
+  )
+
+  return { practitioners, loading, createPractitioner, updatePractitioner, archivePractitioner }
+}

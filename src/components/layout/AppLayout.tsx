@@ -1,15 +1,26 @@
-import { useState } from 'react'
-import { Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Header } from './Header'
 import { ActivateTrial } from './ActivateTrial'
 import { SendModal } from '../dashboard/SendModal'
 import { Toast, type ToastType } from '../ui/Toast'
 import { Spinner } from '../ui/Spinner'
+import { ClinicWelcomeModal } from '../profiles/ClinicModals'
 import { useConsents } from '../../hooks/useConsents'
+import { usePractitioners } from '../../hooks/usePractitioners'
 import { PLANS } from '../../lib/constants'
 import { countThisMonth } from '../../lib/usage'
 import { hasSubscription, trialDaysLeft } from '../../lib/billing'
-import type { Doctor } from '../../types'
+import {
+  MAIN_PROFILE,
+  buildProfiles,
+  canUseProfiles,
+  clinicWelcomeSeen,
+  markClinicWelcomeSeen,
+  readActiveProfile,
+  writeActiveProfile,
+} from '../../lib/profiles'
+import type { Doctor, Profile } from '../../types'
 
 export interface DashboardOutletContext {
   doctor: Doctor
@@ -19,6 +30,16 @@ export interface DashboardOutletContext {
   resendConsent: ReturnType<typeof useConsents>['resendConsent']
   openSendModal: () => void
   showToast: (msg: string, type?: ToastType) => void
+  refetchDoctor: () => Promise<void>
+  /** Titulaire du compte + profils praticiens actifs (offre Clinique). */
+  profiles: Profile[]
+  activeProfile: Profile
+  /** false tant qu'un compte à plusieurs profils n'a pas choisi le sien. */
+  profileChosen: boolean
+  /** Offre Clinique en cours : les profils praticiens sont utilisables. */
+  profilesEnabled: boolean
+  selectProfile: (profileId: string) => void
+  practitionersApi: Pick<ReturnType<typeof usePractitioners>, 'createPractitioner' | 'updatePractitioner' | 'archivePractitioner'>
 }
 
 interface AppLayoutProps {
@@ -33,7 +54,17 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   const [showSend, setShowSend] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
 
-  const { consents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
+  const location = useLocation()
+  const { consents: allConsents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
+  const { practitioners, loading: practitionersLoading, createPractitioner, updatePractitioner, archivePractitioner } = usePractitioners(
+    doctor?.id ?? null
+  )
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const doctorId = doctor?.id ?? null
+  useEffect(() => {
+    setActiveId(doctorId ? readActiveProfile(doctorId) : null)
+  }, [doctorId])
 
   if (authLoading) {
     return (
@@ -71,6 +102,41 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     return <ActivateTrial doctor={doctor} refetchDoctor={refetchDoctor} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
   }
 
+  // Profils praticiens (offre Clinique) : chaque praticien choisit le sien et ne voit que ses envois.
+  const profilesEnabled = canUseProfiles(doctor)
+  const profiles = buildProfiles(doctor, practitioners)
+  const multiProfile = profiles.length > 1
+  const chosen = profiles.find((p) => p.id === (activeId ?? readActiveProfile(doctor.id))) ?? null
+  const activeProfile = chosen ?? profiles[0]
+  const onProfilesPage = location.pathname === '/profiles'
+
+  if (profilesEnabled && practitionersLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
+        <Spinner />
+      </div>
+    )
+  }
+  if (multiProfile && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
+
+  // Un consentement dont le profil a été retiré revient au titulaire du compte.
+  const activeIds = new Set(profiles.map((p) => p.id))
+  const ownerOf = (practitionerId: string | null) => (practitionerId && activeIds.has(practitionerId) ? practitionerId : MAIN_PROFILE)
+  const consents = multiProfile ? allConsents.filter((c) => ownerOf(c.practitioner_id) === activeProfile.id) : allConsents
+
+  const selectProfile = (profileId: string) => {
+    writeActiveProfile(doctor.id, profileId)
+    setActiveId(profileId)
+    navigate('/dashboard')
+  }
+  const showClinicWelcome =
+    profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
+  const closeClinicWelcome = (goToProfiles: boolean) => {
+    markClinicWelcomeSeen(doctor.id)
+    setWelcomeDismissed(true)
+    if (goToProfiles) navigate('/profiles?gerer=1')
+  }
+
   const plan = PLANS.find((p) => p.id === doctor.plan) ?? PLANS[0]
   const showToast = (msg: string, type: ToastType = 'success') => setToast({ msg, type })
   const subscribed = hasSubscription(doctor)
@@ -98,6 +164,23 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     resendConsent,
     openSendModal: () => setShowSend(true),
     showToast,
+    refetchDoctor,
+    profiles,
+    activeProfile,
+    profileChosen: chosen !== null || !multiProfile,
+    profilesEnabled,
+    selectProfile,
+    practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner },
+  }
+
+  // Écran de sélection des profils : plein écran, sans l'en-tête du tableau de bord.
+  if (onProfilesPage) {
+    return (
+      <div style={{ color: 'var(--text-primary)' }}>
+        <Outlet context={outletContext} />
+        {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+      </div>
+    )
   }
 
   return (
@@ -117,7 +200,13 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           </button>
         </div>
       )}
-      <Header doctor={doctor} consents={consents} onOpenSendModal={() => setShowSend(true)} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
+      <Header
+        doctor={doctor}
+        consents={consents}
+        activeProfile={activeProfile}
+        profilesEnabled={profilesEnabled}
+        multiProfile={multiProfile}
+        onOpenSendModal={() => setShowSend(true)} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
 
       <main style={{ padding: '40px 34px 90px', maxWidth: 1520, margin: '0 auto' }} className="!px-[clamp(1rem,4vw,34px)]">
         <Outlet context={outletContext} />
@@ -127,15 +216,17 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
         <SendModal
           onClose={() => setShowSend(false)}
           onSend={async (form) => {
-            const result = await sendConsent(form)
+            const result = await sendConsent(form, activeProfile.isMain ? null : activeProfile.id)
             if (!result.error) showToast(`Lien envoyé à ${form.patient}`)
             return result
           }}
           planId={doctor.plan}
-          used={countThisMonth(consents)}
+          used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
         />
       )}
+
+      {showClinicWelcome && <ClinicWelcomeModal onCreate={() => closeClinicWelcome(true)} onLater={() => closeClinicWelcome(false)} />}
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
     </div>
