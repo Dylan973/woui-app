@@ -212,14 +212,18 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
             onClick={() => setAvatarOpen((v) => !v)}
             title={profileName(activeProfile)}
             aria-label={`Menu du profil ${profileName(activeProfile)}`}
-            className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-full text-[12px]"
+            className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center overflow-hidden rounded-full p-0 text-[12px]"
             style={
-              multiProfile
+              multiProfile || activeProfile.photoUrl
                 ? { background: activeProfile.color, border: '1px solid transparent', color: '#fff', fontWeight: 600 }
                 : { background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }
             }
           >
-            {profileInitials(activeProfile)}
+            {activeProfile.photoUrl ? (
+              <img src={activeProfile.photoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              profileInitials(activeProfile)
+            )}
           </button>
           {avatarOpen && (
             <div

@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
-import { PROFILE_COLORS, profileInitials } from '../../lib/profiles'
+import { ProfileAvatar } from './ProfileAvatar'
+import { PROFILE_COLORS } from '../../lib/profiles'
 import type { Profile, ProfileForm } from '../../types'
 
 interface ProfileEditModalProps {
   /** Profil à modifier ; null = création d'un nouveau profil. */
   profile: Profile | null
   onClose: () => void
-  onSave: (form: ProfileForm) => Promise<{ error: string | null }>
+  /** photo : nouveau fichier, 'remove' pour retirer la photo, null pour ne rien changer. */
+  onSave: (form: ProfileForm, photo: File | 'remove' | null) => Promise<{ error: string | null }>
   /** Retrait du profil (absent pour le titulaire du compte et à la création). */
   onArchive?: () => Promise<{ error: string | null }>
 }
@@ -21,6 +23,10 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
     specialty: profile?.specialty || 'Chirurgien-dentiste',
     color: profile?.color ?? PROFILE_COLORS[1],
   })
+  const [photo, setPhoto] = useState<File | 'remove' | null>(null)
+  const preview = useMemo(() => (photo instanceof File ? URL.createObjectURL(photo) : null), [photo])
+  useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
+  const shownPhoto = preview ?? (photo === 'remove' ? null : (profile?.photoUrl ?? null))
   const [busy, setBusy] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,13 +46,7 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
   return (
     <Modal onClose={onClose}>
       <div className="mb-6 flex items-center gap-4">
-        <div
-          className="flex h-14 w-14 flex-none items-center justify-center rounded-[12px] text-[20px] font-semibold text-white"
-          style={{ background: form.color }}
-          aria-hidden="true"
-        >
-          {profileInitials(form)}
-        </div>
+        <ProfileAvatar profile={{ ...form, photoUrl: shownPhoto }} className="h-16 w-16 rounded-[14px] text-[22px]" />
         <div>
           <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
             {profile ? 'Modifier le profil' : 'Nouveau profil'}
@@ -55,6 +55,35 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
             Ce nom apparaît sur les emails et les consentements signés.
           </p>
         </div>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <label
+          className="cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[0.8125rem] font-semibold"
+          style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+        >
+          {shownPhoto ? 'Changer la photo' : 'Ajouter une photo'}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) setPhoto(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+        {shownPhoto && (
+          <button
+            type="button"
+            onClick={() => setPhoto('remove')}
+            className="cursor-pointer text-[13px]"
+            style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+          >
+            Retirer la photo
+          </button>
+        )}
       </div>
 
       <div className="grid gap-x-4 sm:grid-cols-2">
@@ -118,7 +147,7 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
         <Button variant="ghost" size="sm" onClick={onClose}>
           Annuler
         </Button>
-        <Button variant="primary" size="sm" disabled={!valid} onClick={() => run(() => onSave(form))}>
+        <Button variant="primary" size="sm" disabled={!valid} onClick={() => run(() => onSave(form, photo))}>
           {busy ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
       </div>

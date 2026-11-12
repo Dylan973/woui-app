@@ -6,7 +6,8 @@ interface UsePractitionersResult {
   /** Profils ajoutés (hors titulaire du compte), archivés compris. */
   practitioners: Practitioner[]
   loading: boolean
-  createPractitioner: (form: ProfileForm) => Promise<{ error: string | null }>
+  createPractitioner: (form: ProfileForm) => Promise<{ error: string | null; id?: string }>
+  setPractitionerPhoto: (id: string, photoPath: string | null) => Promise<{ error: string | null }>
   updatePractitioner: (id: string, form: ProfileForm) => Promise<{ error: string | null }>
   archivePractitioner: (id: string) => Promise<{ error: string | null }>
 }
@@ -48,9 +49,13 @@ export function usePractitioners(doctorId: string | null): UsePractitionersResul
   const createPractitioner = useCallback(
     async (form: ProfileForm) => {
       if (!doctorId) return { error: 'Compte non identifié.' }
-      const { error } = await supabase.from('practitioners').insert([{ doctor_id: doctorId, ...clean(form) }])
+      const { data, error } = await supabase
+        .from('practitioners')
+        .insert([{ doctor_id: doctorId, ...clean(form) }])
+        .select('id')
+        .single()
       if (!error) await fetchAll()
-      return { error: error ? error.message : null }
+      return { error: error ? error.message : null, id: (data as { id: string } | null)?.id }
     },
     [doctorId, fetchAll]
   )
@@ -61,6 +66,15 @@ export function usePractitioners(doctorId: string | null): UsePractitionersResul
         .from('practitioners')
         .update({ ...clean(form), updated_at: new Date().toISOString() })
         .eq('id', id)
+      if (!error) await fetchAll()
+      return { error: error ? error.message : null }
+    },
+    [fetchAll]
+  )
+
+  const setPractitionerPhoto = useCallback(
+    async (id: string, photoPath: string | null) => {
+      const { error } = await supabase.from('practitioners').update({ photo_path: photoPath, updated_at: new Date().toISOString() }).eq('id', id)
       if (!error) await fetchAll()
       return { error: error ? error.message : null }
     },
@@ -80,5 +94,5 @@ export function usePractitioners(doctorId: string | null): UsePractitionersResul
     [fetchAll]
   )
 
-  return { practitioners, loading, createPractitioner, updatePractitioner, archivePractitioner }
+  return { practitioners, loading, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto }
 }

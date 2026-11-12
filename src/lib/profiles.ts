@@ -9,6 +9,10 @@ export const PROFILE_COLORS = ['#6c5ce7', '#0ea5e9', '#3fc79a', '#f59e0b', '#ef4
 export const canUseProfiles = (doctor: Doctor) =>
   doctor.plan === 'clinic' && (doctor.plan_status === 'active' || doctor.plan_status === 'trialing')
 
+/** Le code à 4 chiffres par profil est proposé aux offres Pro et Clinique en cours. */
+export const canUsePin = (doctor: Doctor) =>
+  (doctor.plan === 'pro' || doctor.plan === 'clinic') && (doctor.plan_status === 'active' || doctor.plan_status === 'trialing')
+
 /** Titulaire du compte en premier, puis les profils actifs. */
 export function buildProfiles(doctor: Doctor, practitioners: Practitioner[]): Profile[] {
   const main: Profile = {
@@ -18,13 +22,14 @@ export function buildProfiles(doctor: Doctor, practitioners: Practitioner[]): Pr
     specialty: doctor.specialty ?? '',
     color: PROFILE_COLORS[0],
     isMain: true,
+    photo_path: doctor.photo_path ?? null,
   }
   if (!canUseProfiles(doctor)) return [main]
   return [
     main,
     ...practitioners
       .filter((p) => !p.archived_at)
-      .map((p) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, specialty: p.specialty, color: p.color, isMain: false })),
+      .map((p) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, specialty: p.specialty, color: p.color, isMain: false, photo_path: p.photo_path ?? null })),
   ]
 }
 

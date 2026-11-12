@@ -346,3 +346,86 @@ a:hover {
     transform: none;
   }
 }
+
+/* ── Code de profil (4 chiffres) ── */
+@keyframes pin-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pin-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-9px);
+  }
+  40%,
+  80% {
+    transform: translateX(9px);
+  }
+}
+@keyframes pin-step {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pin-card {
+  animation: pin-in 0.42s var(--ease-standard) both;
+}
+.pin-dot {
+  transition:
+    background-color 0.18s var(--ease-standard),
+    border-color 0.18s var(--ease-standard);
+}
+.pin-dot[data-filled='true'] {
+  animation: pin-pop 0.26s var(--ease-standard) both;
+}
+.pin-shake {
+  animation: pin-shake 0.42s var(--ease-standard) both;
+}
+.pin-step {
+  animation: pin-step 0.3s var(--ease-standard) both;
+}
+.pin-key {
+  transition:
+    transform 0.12s var(--ease-standard),
+    background-color 0.15s var(--ease-standard);
+}
+.pin-key:hover {
+  background: var(--surface-card-alt);
+}
+.pin-key:active {
+  transform: scale(0.92);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-card,
+  .pin-dot[data-filled='true'],
+  .pin-shake,
+  .pin-step {
+    animation: none;
+  }
+}

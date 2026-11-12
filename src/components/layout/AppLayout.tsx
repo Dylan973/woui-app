@@ -6,6 +6,10 @@ import { SendModal } from '../dashboard/SendModal'
 import { Toast, type ToastType } from '../ui/Toast'
 import { Spinner } from '../ui/Spinner'
 import { ClinicWelcomeModal } from '../profiles/ClinicModals'
+import { PinOfferModal } from '../profiles/PinOfferModal'
+import { PinDialog } from '../profiles/PinDialog'
+import { useProfilePins } from '../../hooks/useProfilePins'
+import { signAvatarUrls } from '../../lib/avatar'
 import { useConsents } from '../../hooks/useConsents'
 import { usePractitioners } from '../../hooks/usePractitioners'
 import { PLANS } from '../../lib/constants'
@@ -14,7 +18,9 @@ import { hasSubscription, trialDaysLeft } from '../../lib/billing'
 import {
   MAIN_PROFILE,
   buildProfiles,
+  canUsePin,
   canUseProfiles,
+  profileName,
   clinicWelcomeSeen,
   markClinicWelcomeSeen,
   readActiveProfile,
@@ -39,7 +45,14 @@ export interface DashboardOutletContext {
   /** Offre Clinique en cours : les profils praticiens sont utilisables. */
   profilesEnabled: boolean
   selectProfile: (profileId: string) => void
-  practitionersApi: Pick<ReturnType<typeof usePractitioners>, 'createPractitioner' | 'updatePractitioner' | 'archivePractitioner'>
+  practitionersApi: Pick<
+    ReturnType<typeof usePractitioners>,
+    'createPractitioner' | 'updatePractitioner' | 'archivePractitioner' | 'setPractitionerPhoto'
+  >
+  /** Codes à 4 chiffres des profils (offres Pro et Clinique). */
+  pinApi: ReturnType<typeof useProfilePins>
+  /** Le code de profil est utilisable par ce compte. */
+  pinEnabled: boolean
 }
 
 interface AppLayoutProps {
@@ -56,9 +69,19 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
 
   const location = useLocation()
   const { consents: allConsents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
-  const { practitioners, loading: practitionersLoading, createPractitioner, updatePractitioner, archivePractitioner } = usePractitioners(
-    doctor?.id ?? null
-  )
+  const { practitioners, loading: practitionersLoading, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto } =
+    usePractitioners(doctor?.id ?? null)
+  const pinApi = useProfilePins(doctor?.id ?? null)
+  const [creatingPin, setCreatingPin] = useState(false)
+  const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({})
+  const photoPaths = [doctor?.photo_path, ...practitioners.map((p) => p.photo_path)].filter(Boolean).join('|')
+  useEffect(() => {
+    let cancelled = false
+    void signAvatarUrls(photoPaths ? photoPaths.split('|') : []).then((urls) => !cancelled && setAvatarUrls(urls))
+    return () => {
+      cancelled = true
+    }
+  }, [photoPaths])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const doctorId = doctor?.id ?? null
@@ -104,20 +127,24 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
 
   // Profils praticiens (offre Clinique) : chaque praticien choisit le sien et ne voit que ses envois.
   const profilesEnabled = canUseProfiles(doctor)
-  const profiles = buildProfiles(doctor, practitioners)
+  const profiles = buildProfiles(doctor, practitioners).map((p) => ({ ...p, photoUrl: p.photo_path ? (avatarUrls[p.photo_path] ?? null) : null }))
+  const pinEnabled = canUsePin(doctor) && pinApi.available
   const multiProfile = profiles.length > 1
   const chosen = profiles.find((p) => p.id === (activeId ?? readActiveProfile(doctor.id))) ?? null
   const activeProfile = chosen ?? profiles[0]
   const onProfilesPage = location.pathname === '/profiles'
 
-  if (profilesEnabled && practitionersLoading) {
+  // Un profil protégé par un code doit être déverrouillé, même s'il est seul (offre Pro).
+  const needsChoice = multiProfile || (pinApi.pins[MAIN_PROFILE]?.hasPin ?? false)
+
+  if ((profilesEnabled && practitionersLoading) || pinApi.loading) {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
         <Spinner />
       </div>
     )
   }
-  if (multiProfile && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
+  if (needsChoice && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
 
   // Un consentement dont le profil a été retiré revient au titulaire du compte.
   const activeIds = new Set(profiles.map((p) => p.id))
@@ -131,6 +158,9 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }
   const showClinicWelcome =
     profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
+  // Première ouverture d'un profil : on propose une fois de le protéger par un code.
+  const activePin = pinApi.pins[activeProfile.id]
+  const showPinOffer = pinEnabled && !onProfilesPage && !showClinicWelcome && !creatingPin && !activePin?.hasPin && !activePin?.offered
   const closeClinicWelcome = (goToProfiles: boolean) => {
     markClinicWelcomeSeen(doctor.id)
     setWelcomeDismissed(true)
@@ -167,10 +197,12 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     refetchDoctor,
     profiles,
     activeProfile,
-    profileChosen: chosen !== null || !multiProfile,
+    profileChosen: chosen !== null || !needsChoice,
     profilesEnabled,
     selectProfile,
-    practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner },
+    practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto },
+    pinApi,
+    pinEnabled,
   }
 
   // Écran de sélection des profils : plein écran, sans l'en-tête du tableau de bord.
@@ -223,6 +255,34 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           planId={doctor.plan}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
+        />
+      )}
+
+      {showPinOffer && (
+        <PinOfferModal
+          profileLabel={profileName(activeProfile)}
+          onCreate={() => {
+            void pinApi.markOffered(activeProfile.id)
+            setCreatingPin(true)
+          }}
+          onDecline={() => void pinApi.markOffered(activeProfile.id)}
+        />
+      )}
+      {creatingPin && (
+        <PinDialog
+          steps={[
+            { key: 'new', title: 'Choisissez votre code' },
+            { key: 'confirm', title: 'Confirmez votre code', hint: 'Saisissez-le une seconde fois' },
+          ]}
+          onClose={() => setCreatingPin(false)}
+          onComplete={async (values) => {
+            const message = await pinApi.setPin(activeProfile.id, values.new ?? '')
+            if (!message) {
+              setCreatingPin(false)
+              showToast('Code créé. Il sera demandé à la prochaine ouverture du profil.')
+            }
+            return message
+          }}
         />
       )}
 

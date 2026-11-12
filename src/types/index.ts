@@ -11,6 +11,8 @@ export interface Doctor {
   last_name: string | null
   specialty: string
   phone: string | null
+  /** Chemin de la photo dans le stockage privé `avatars`. */
+  photo_path?: string | null
   plan: PlanId
   plan_status: PlanStatus
   stripe_customer_id: string | null
@@ -57,6 +59,7 @@ export interface Practitioner {
   last_name: string
   specialty: string
   color: string
+  photo_path?: string | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -70,6 +73,9 @@ export interface Profile {
   specialty: string
   color: string
   isMain: boolean
+  photo_path: string | null
+  /** Lien temporaire vers la photo, s'il y en a une. */
+  photoUrl?: string | null
 }
 
 export interface ProfileForm {

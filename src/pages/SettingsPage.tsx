@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { PinDialog, type PinStepKey } from '../components/profiles/PinDialog'
+import { profileName } from '../lib/profiles'
 import { supabase } from '../lib/supabase'
 import { PLANS, PLAN_LIMITS_LABEL } from '../lib/constants'
 import { hasSubscription, openBillingPortal, startCheckout, trialDaysLeft } from '../lib/billing'
@@ -17,7 +19,7 @@ const TABS: { id: TabId; label: string; soon?: boolean }[] = [
   { id: 'documents', label: 'Documents PDF', soon: true },
   { id: 'plan', label: 'Abonnement' },
   { id: 'notifications', label: 'Notifications', soon: true },
-  { id: 'security', label: 'Sécurité', soon: true },
+  { id: 'security', label: 'Sécurité' },
 ]
 
 function isTabId(value: string | null): value is TabId {
@@ -49,7 +51,10 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
+  const { activeProfile, pinApi, pinEnabled } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
+  const [pinMode, setPinMode] = useState<'create' | 'change' | 'remove' | null>(null)
+  const hasPin = pinApi.pins[activeProfile.id]?.hasPin ?? false
   // L'onglet vit dans l'URL : « Voir les plans » (modale de limite atteinte) ouvre
   // directement /settings?tab=plan, et le lien reste partageable.
   const [searchParams, setSearchParams] = useSearchParams()
@@ -124,7 +129,20 @@ export function SettingsPage() {
           ? 'Paiement en échec'
           : 'Plan actuel'
 
-  const soonTitle = { documents: 'Documents PDF', notifications: 'Notifications', security: 'Sécurité' }[tab as string]
+  const soonTitle = { documents: 'Documents PDF', notifications: 'Notifications' }[tab as string]
+
+  const pinSteps: Record<'create' | 'change' | 'remove', { key: PinStepKey; title: string; hint?: string }[]> = {
+    create: [
+      { key: 'new', title: 'Choisissez votre code' },
+      { key: 'confirm', title: 'Confirmez votre code', hint: 'Saisissez-le une seconde fois' },
+    ],
+    change: [
+      { key: 'current', title: 'Votre code actuel' },
+      { key: 'new', title: 'Votre nouveau code' },
+      { key: 'confirm', title: 'Confirmez le nouveau code', hint: 'Saisissez-le une seconde fois' },
+    ],
+    remove: [{ key: 'current', title: 'Votre code actuel', hint: 'Saisissez-le pour le supprimer' }],
+  }
 
   return (
     <section className="max-w-[1100px]" style={{ animation: 'nb-rise 0.5s var(--ease-standard) both' }}>
@@ -375,6 +393,76 @@ export function SettingsPage() {
             {trialLeft !== null && trialLeft > 2 && ' Aucun prélèvement avant la fin de votre essai.'}
           </p>
         </div>
+      )}
+
+      {tab === 'security' && (
+        <div
+          className="p-[clamp(1.5rem,4vw,36px)]"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
+              Code du profil
+            </h2>
+            <span
+              className="font-mono rounded-[3px] px-2 py-[3px] text-[10px] uppercase tracking-[0.1em]"
+              style={{
+                background: hasPin ? 'var(--mint-soft)' : 'var(--surface-card-alt)',
+                color: hasPin ? 'var(--status-signed-text)' : 'var(--text-muted)',
+              }}
+            >
+              {hasPin ? 'Activé' : pinEnabled ? 'Non activé' : 'Abonnements Pro et Clinique'}
+            </span>
+          </div>
+          <p className="mb-6 mt-[6px] max-w-[620px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+            {pinEnabled || hasPin
+              ? `Un code à 4 chiffres, demandé à chaque ouverture du profil « ${profileName(activeProfile)} ». Facultatif, utile sur un poste partagé au cabinet.`
+              : 'Protégez l’ouverture de votre profil par un code à 4 chiffres. Disponible avec les abonnements Pro et Clinique.'}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {hasPin ? (
+              <>
+                <Button variant="primary" onClick={() => setPinMode('change')}>
+                  Modifier le code
+                </Button>
+                <Button variant="ghost" onClick={() => setPinMode('remove')}>
+                  Supprimer le code
+                </Button>
+              </>
+            ) : pinEnabled ? (
+              <Button variant="primary" onClick={() => setPinMode('create')}>
+                Créer un code
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={() => setTab('plan')}>
+                Voir les offres
+              </Button>
+            )}
+          </div>
+          {hasPin && (
+            <p className="mt-5 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+              Code oublié ? Depuis l'écran de sélection des profils, cliquez sur votre profil puis sur « Code oublié ? » pour recevoir un e-mail.
+            </p>
+          )}
+        </div>
+      )}
+
+      {pinMode && (
+        <PinDialog
+          steps={pinSteps[pinMode]}
+          onClose={() => setPinMode(null)}
+          onComplete={async (values) => {
+            const message =
+              pinMode === 'remove'
+                ? await pinApi.removePin(activeProfile.id, values.current ?? '')
+                : await pinApi.setPin(activeProfile.id, values.new ?? '', values.current)
+            if (!message) {
+              showToast(pinMode === 'remove' ? 'Code supprimé' : pinMode === 'change' ? 'Code modifié' : 'Code créé')
+              setPinMode(null)
+            }
+            return message
+          }}
+        />
       )}
 
       {soonTitle && (
