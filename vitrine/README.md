@@ -19,8 +19,8 @@ Vitrine statique en français. Les pages sont générées dans `dist/` à partir
 - Rédiger et valider les CGU et la politique de confidentialité de l’application Woui. L’inscription renvoie actuellement vers `https://woui.fr/cgu` et `https://woui.fr/confidentialite`. Publier les textes définitifs et vérifier les deux liens dans le formulaire d’inscription.
 - Intégrer les vidéos pédagogiques par acte dans l’espace patient. La vitrine présente cette partie du parcours comme étant en préparation.
 
-## Déploiement existant
+## Déploiement
 
 - Production : https://woui-vitrine.vercel.app
-- Projet Vercel : `dylan973s-projects/woui-vitrine`.
-- Après extraction de l’archive, relier les sources avec `vercel link --yes --project woui-vitrine --scope dylan973s-projects`.
+- Projet Vercel `woui-vitrine`, relié au dépôt GitHub `Dylan973/woui-app` avec `vitrine` comme dossier racine.
+- Chaque envoi sur la branche `main` met le site en ligne automatiquement.
