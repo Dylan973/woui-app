@@ -49,9 +49,9 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
 
   const status =
     pct >= 100
-      ? { label: 'Vidéo terminée', color: '#11b184' }
+      ? { label: 'Vidéo terminée', color: 'var(--brand)' }
       : pct >= 97
-        ? { label: 'Signature débloquée', color: '#11b184' }
+        ? { label: 'Signature débloquée', color: 'var(--brand)' }
         : { label: 'Visionnage en cours', color: 'var(--ink-3)' }
 
   return (
@@ -82,11 +82,11 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
             type="button"
             onClick={() => videoRef.current?.play().catch(() => {})}
             className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-[14px]"
-            style={{ background: 'rgba(11,33,28,.68)', border: 0 }}
+            style={{ background: 'rgba(18,17,40,.62)', border: 0 }}
           >
             <span
               className="flex items-center justify-center rounded-full"
-              style={{ width: 62, height: 62, background: '#11b184' }}
+              style={{ width: 62, height: 62, background: 'var(--brand)' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
                 <path d="M8 5v14l11-7z" />
@@ -99,7 +99,7 @@ export function VideoPlayer({ onProgress, onViewed, alreadyViewed }: VideoPlayer
         )}
 
         <div className="absolute bottom-0 left-0 right-0" style={{ height: 4, background: 'rgba(255,255,255,.16)' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: '#11b184', transition: 'width .25s linear' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: 'var(--brand)', transition: 'width .25s linear' }} />
         </div>
       </div>
 

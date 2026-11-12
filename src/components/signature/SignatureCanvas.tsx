@@ -47,7 +47,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
     const ctx = canvas.getContext('2d')!
     // canvas 2D ne lit pas les custom properties : on résout --ink au moment du tracé
     // pour que la signature suive le thème actif de la page patient.
-    ctx.strokeStyle = getComputedStyle(canvas).getPropertyValue('--ink').trim() || '#0c1f1a'
+    ctx.strokeStyle = getComputedStyle(canvas).getPropertyValue('--ink').trim() || '#171734'
     const { x, y } = getPos(e)
     ctx.beginPath()
     ctx.moveTo(x, y)

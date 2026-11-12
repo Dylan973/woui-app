@@ -61,30 +61,30 @@ const SUBJECT: Record<Kind, string> = {
 
 function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string; kind: Kind; cabinet: string | null; logoUrl: string | null }) {
   return `<!doctype html>
-<html lang="fr"><body style="margin:0;background:#f6faf8;font-family:Poppins,Helvetica,Arial,sans-serif;color:#0c1f1a">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6faf8;padding:32px 16px">
+<html lang="fr"><body style="margin:0;background:#f4f5fa;font-family:Poppins,Helvetica,Arial,sans-serif;color:#171734">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5fa;padding:32px 16px">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid rgba(12,31,26,.08);border-radius:16px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid rgba(23,23,52,.08);border-radius:16px">
         <tr><td style="padding:32px 32px 8px">
           ${p.logoUrl ? `<img src="${esc(p.logoUrl)}" alt="${esc(p.cabinet ?? 'Logo du cabinet')}" style="display:block;max-height:48px;max-width:180px;margin:0 0 18px">` : ''}
-          ${p.cabinet ? `<div style="font-size:15px;font-weight:600;color:#0c1f1a;margin:0 0 4px">${esc(p.cabinet)}</div>` : ''}
-          <div style="font-size:13px;color:#0b7a5c;font-weight:600;letter-spacing:.08em;text-transform:uppercase">${esc(p.doctorName)}</div>
-          <div style="font-size:13px;color:rgba(12,31,26,.55);margin-top:2px">${esc(p.specialty)}</div>
+          ${p.cabinet ? `<div style="font-size:15px;font-weight:600;color:#171734;margin:0 0 4px">${esc(p.cabinet)}</div>` : ''}
+          <div style="font-size:13px;color:#6c5ce7;font-weight:600;letter-spacing:.08em;text-transform:uppercase">${esc(p.doctorName)}</div>
+          <div style="font-size:13px;color:rgba(23,23,52,.55);margin-top:2px">${esc(p.specialty)}</div>
           <h1 style="font-size:22px;line-height:1.3;margin:22px 0 0;font-weight:600">Bonjour ${esc(p.patient)},</h1>
-          <p style="font-size:15px;line-height:1.6;color:rgba(12,31,26,.72);margin:12px 0 0">
+          <p style="font-size:15px;line-height:1.6;color:rgba(23,23,52,.72);margin:12px 0 0">
             ${esc(INTRO[p.kind])}
           </p>
         </td></tr>
         <tr><td style="padding:24px 32px 8px" align="left">
-          <a href="${esc(p.link)}" style="display:inline-block;background:#11b184;color:#ffffff;padding:14px 26px;border-radius:12px;text-decoration:none;font-weight:500;font-size:15px">${esc(BUTTON[p.kind])}</a>
+          <a href="${esc(p.link)}" style="display:inline-block;background:#6c5ce7;color:#ffffff;padding:14px 26px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px">${esc(BUTTON[p.kind])}</a>
         </td></tr>
         <tr><td style="padding:16px 32px 32px">
-          <p style="font-size:12.5px;line-height:1.55;color:rgba(12,31,26,.5);margin:0">
+          <p style="font-size:12.5px;line-height:1.55;color:rgba(23,23,52,.5);margin:0">
             Ce lien est personnel et valable 30 jours : ne le transférez pas. Si vous n'attendiez pas ce message, ignorez-le ou contactez votre cabinet.
           </p>
         </td></tr>
       </table>
-      <p style="font-size:11.5px;color:rgba(12,31,26,.4);margin:16px 0 0">Envoyé via Woui pour le compte de votre praticien.</p>
+      <p style="font-size:11.5px;color:rgba(23,23,52,.42);margin:16px 0 0">Envoyé via Woui pour le compte de votre praticien.</p>
     </td></tr>
   </table>
 </body></html>`

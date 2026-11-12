@@ -10,9 +10,9 @@ type LoadState = 'loading' | 'not-found' | 'ready'
 type Theme = 'light' | 'dark'
 
 const THEME_KEY = 'woui_patient_theme'
-// Vert assez foncé pour un texte blanc lisible (contraste ≥ 4,5:1).
-const MINT = '#0b7d5d'
-const MINT_HOVER = '#096a4f'
+// Violet Woui (même charte que le tableau de bord et le site) ; texte blanc lisible dessus.
+const MINT = 'var(--brand)'
+const MINT_HOVER = 'var(--brand-hover)'
 
 /** VideoPlayer déclenche onViewed à 90% ; la signature, elle, n'ouvre qu'à 97%. */
 const UNLOCK_AT = 97
@@ -47,7 +47,7 @@ function PatientHeader({
       {/* TODO wordmarks : déposer /public/woui-wordmark.png (thème clair) et
           /public/woui-wordmark-white.png (thème sombre), puis remplacer ce bloc
           par deux <img> conditionnels de 18px de haut. En attendant, la marque
-          blanche existante est posée sur un carré menthe pour rester lisible
+          blanche existante est posée sur un carré violet pour rester lisible
           sur les deux fonds. */}
       {logoUrl || cabinetName ? (
         <div className="flex min-w-0 items-center gap-3">
@@ -83,8 +83,8 @@ function PatientHeader({
           style={{
             padding: '6px 12px',
             borderRadius: 999,
-            background: 'var(--mint-soft)',
-            color: 'var(--mint-ink)',
+            background: 'var(--brand-soft)',
+            color: 'var(--brand-ink)',
             fontSize: 12,
             fontWeight: 500,
           }}
@@ -138,8 +138,8 @@ function StepHeading({ n, children }: { n: number; children: string }) {
           width: 24,
           height: 24,
           borderRadius: 8,
-          background: 'var(--mint-soft)',
-          color: 'var(--mint-ink)',
+          background: 'var(--brand-soft)',
+          color: 'var(--brand-ink)',
           fontSize: 12,
           fontWeight: 600,
         }}
@@ -817,7 +817,7 @@ export function SignaturePage() {
                     border: '1px solid var(--line-2)',
                   }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0b7a5c" strokeWidth="2" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" strokeWidth="2" aria-hidden="true">
                     <rect x="4" y="10" width="16" height="11" rx="2" />
                     <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                   </svg>

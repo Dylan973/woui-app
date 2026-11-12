@@ -101,9 +101,9 @@ async function addSignaturePage(pdf: PDFDocument, p: SignaturePage) {
   const page = pdf.addPage([595.28, 841.89])
   const regular = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const ink = rgb(0.05, 0.12, 0.1)
-  const muted = rgb(0.4, 0.45, 0.43)
-  const line = rgb(0.85, 0.89, 0.87)
+  const ink = rgb(0.09, 0.09, 0.2)
+  const muted = rgb(0.42, 0.42, 0.52)
+  const line = rgb(0.87, 0.87, 0.92)
   const left = 56
   const width = 595.28 - left * 2
   let y = 785
@@ -126,7 +126,7 @@ async function addSignaturePage(pdf: PDFDocument, p: SignaturePage) {
     y -= 18
   }
 
-  page.drawRectangle({ x: 0, y: 826, width: 595.28, height: 16, color: rgb(0.067, 0.694, 0.518) })
+  page.drawRectangle({ x: 0, y: 826, width: 595.28, height: 16, color: rgb(0.424, 0.361, 0.906) }) // violet Woui
   // En-tête du cabinet, à droite : logo puis nom.
   let headerBottom = y
   if (p.logoPng) {
