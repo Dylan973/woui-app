@@ -11,6 +11,8 @@ import { hasSubscription, openBillingPortal, startCheckout, trialDaysLeft } from
 import type { BillingInterval, PlanId } from '../types'
 import { countThisMonth } from '../lib/usage'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
+import { CabinetIdentity } from '../components/settings/CabinetIdentity'
+import { ArchiveCard } from '../components/settings/ArchiveCard'
 
 type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'security'
 
@@ -52,7 +54,7 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
-  const { activeProfile, pinApi, pinEnabled, onSignatureSaved } = useOutletContext<DashboardOutletContext>()
+  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
   const [rpps, setRpps] = useState(doctor.rpps ?? '')
   const [rppsBusy, setRppsBusy] = useState(false)
@@ -275,6 +277,7 @@ export function SettingsPage() {
               </Button>
             </div>
           </div>
+          <CabinetIdentity doctor={doctor} refetchDoctor={refetchDoctor} showToast={showToast} onSeePlans={() => setTab('plan')} />
         </div>
       )}
 
@@ -466,7 +469,17 @@ export function SettingsPage() {
       )}
 
       {tab === 'documents' && (
-        <DocumentsTab doctorId={doctor.id} activeProfile={activeProfile} onSignatureSaved={onSignatureSaved} showToast={showToast} />
+        <div className="flex flex-col gap-[22px]">
+          <DocumentsTab doctorId={doctor.id} activeProfile={activeProfile} onSignatureSaved={onSignatureSaved} showToast={showToast} />
+          <ArchiveCard
+            doctorId={doctor.id}
+            accountCreatedAt={doctor.created_at}
+            allowed={activeProfile.isMain}
+            practitionerName={(id) => profileName(profileOf(id))}
+            showToast={showToast}
+            initialYear={Number(searchParams.get('archive')) || null}
+          />
+        </div>
       )}
 
       {tab === 'security' && (

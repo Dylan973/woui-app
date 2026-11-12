@@ -2,7 +2,7 @@
 //
 // Signature patient (page publique /sign/:token).
 // 1. Enregistre la signature via la fonction SQL sign_consent (refusée si la vidéo
-//    n'a pas été visionnée, si le devis n'a pas été ouvert, ou si c'est déjà signé).
+//    n'a pas été visionnée, si le devis n'a pas été ouvert, si le lien a expiré ou si c'est déjà signé).
 // 2. Relève les éléments de preuve côté serveur : horodatage, IP, appareil.
 // 3. Produit les PDF signés, calcule leur empreinte SHA-256 et les archive dans le
 //    stockage privé `consents/<doctor_id>/` :
@@ -91,6 +91,9 @@ interface SignaturePage {
   patientPng: Uint8Array
   practitionerPng: Uint8Array | null
   proof: [string, string][]
+  /** En-tête du cabinet : nom (toutes les offres) et logo (offre Clinique). */
+  cabinetName?: string | null
+  logoPng?: Uint8Array | null
 }
 
 /** Ajoute à la fin du document la page de signature (A4). */
@@ -124,6 +127,27 @@ async function addSignaturePage(pdf: PDFDocument, p: SignaturePage) {
   }
 
   page.drawRectangle({ x: 0, y: 826, width: 595.28, height: 16, color: rgb(0.067, 0.694, 0.518) })
+  // En-tête du cabinet, à droite : logo puis nom.
+  let headerBottom = y
+  if (p.logoPng) {
+    try {
+      const logo = await pdf.embedPng(p.logoPng)
+      const scale = Math.min(140 / logo.width, 44 / logo.height)
+      const w = logo.width * scale
+      const h = logo.height * scale
+      page.drawImage(logo, { x: left + width - w, y: 800 - h, width: w, height: h })
+      headerBottom = Math.min(headerBottom, 800 - h - 6)
+    } catch {
+      // logo illisible : on garde le nom seul
+    }
+  }
+  if (p.cabinetName) {
+    const name = safe(p.cabinetName).slice(0, 60)
+    const size = 10
+    page.drawText(name, { x: left + width - bold.widthOfTextAtSize(name, size), y: headerBottom - 10, size, font: bold, color: muted })
+  }
+  // Le titre commence sous l'en-tête du cabinet.
+  if (p.logoPng || p.cabinetName) y = Math.min(y, headerBottom - 34)
   text(p.title, 18, bold)
   y -= 2
   text(p.subtitle, 13, regular, muted)
@@ -218,7 +242,7 @@ Deno.serve(async (req) => {
     const consent = (Array.isArray(rows) ? rows[0] : rows) as ConsentRow | undefined
     if (signError || !consent) {
       return json(
-        { error: 'Signature impossible : la vidéo doit être visionnée en entier, le devis doit avoir été ouvert, et le document ne doit pas être déjà signé.' },
+        { error: 'Signature impossible : la vidéo doit être visionnée en entier, le devis doit avoir été ouvert, le lien doit être encore valable, et le document ne doit pas être déjà signé.' },
         409
       )
     }
@@ -230,7 +254,7 @@ Deno.serve(async (req) => {
     try {
       const { data: doctor } = await admin
         .from('doctors')
-        .select('first_name, last_name, specialty, phone, signature_path')
+        .select('first_name, last_name, specialty, phone, signature_path, cabinet_name, logo_path, plan')
         .eq('id', consent.doctor_id)
         .maybeSingle()
       // Offre Clinique : nom et signature du profil praticien qui a envoyé le document.
@@ -250,6 +274,10 @@ Deno.serve(async (req) => {
       const doctorName = ['Dr', signer.first_name, signer.last_name].filter(Boolean).join(' ')
       const patientPng = decodeDataUrl(signature)
       const practitionerPng = await download(signaturePath)
+      const branding = {
+        cabinetName: doctor?.cabinet_name ?? null,
+        logoPng: doctor?.plan === 'clinic' ? await download(doctor?.logo_path) : null,
+      }
       const identity: [string, string][] = [['Patient', consent.patient]]
       const practitionerRows: [string, string][] = [['Praticien', doctorName === 'Dr' ? '—' : doctorName]]
       if (signer.specialty) practitionerRows.push(['Spécialité', signer.specialty])
@@ -275,6 +303,7 @@ Deno.serve(async (req) => {
               : "Je certifie avoir visionné la vidéo d'information présentant le déroulé de l'acte, ses suites habituelles et ses risques éventuels, avoir pu poser mes questions à mon praticien, et consens à l'acte médical mentionné ci-dessus.",
             patientPng,
             practitionerPng,
+            ...branding,
             proof: [
               ['Lien envoyé le', fmt(consent.sent_at)],
               ['Lien ouvert le', fmt(consent.opened_at)],
@@ -306,6 +335,7 @@ Deno.serve(async (req) => {
               "Bon pour accord. Je reconnais avoir reçu et lu le devis qui précède, en avoir compris le contenu et le montant restant à ma charge, et je l'accepte.",
             patientPng,
             practitionerPng,
+            ...branding,
             proof: [['Lien envoyé le', fmt(consent.sent_at)], ['Devis ouvert le', fmt(consent.quote_opened_at)], ...proofEnd],
           })
           const bytes = await pdf.save()

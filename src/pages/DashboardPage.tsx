@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { supabase } from '../lib/supabase'
+import { profileName } from '../lib/profiles'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import type { Consent, ConsentStatus } from '../types'
 
@@ -57,8 +58,18 @@ function median(values: number[]): number | null {
   return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid]
 }
 
+const RESEND_DELAY_MS = 10 * 60 * 1000
+
 export function DashboardPage() {
-  const { consents, consentsLoading, resendConsent, showToast } = useOutletContext<DashboardOutletContext>()
+  const { consents: scoped, consentsLoading, resendConsent, showToast, profiles, cabinetViewAvailable, cabinetView, setCabinetView, profileOf } =
+    useOutletContext<DashboardOutletContext>()
+  // Vue « Tout le cabinet » (titulaire, offre Clinique) : filtre optionnel par praticien.
+  const [practitionerFilter, setPractitionerFilter] = useState<string>('all')
+  const consents = useMemo(
+    () => (cabinetView && practitionerFilter !== 'all' ? scoped.filter((c) => profileOf(c.practitioner_id).id === practitionerFilter) : scoped),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scoped, cabinetView, practitionerFilter]
+  )
   const [filter, setFilter] = useState<FilterKey>('all')
   const [sortDesc, setSortDesc] = useState(true)
   const [showTutorial, setShowTutorial] = useState(false)
@@ -114,18 +125,25 @@ export function DashboardPage() {
     )
   }
 
+  // Relance groupée : un envoi à la fois, en sautant les patients relancés il y a moins de 10 minutes.
   const handleResendAll = async () => {
     setResendingAll(true)
-    const results = await Promise.all(pending.map((c) => resendConsent(c)))
+    const recent = (c: Consent) => c.last_sent_at && Date.now() - new Date(c.last_sent_at).getTime() < RESEND_DELAY_MS
+    const due = pending.filter((c) => !recent(c))
+    const skipped = pending.length - due.length
+    let sent = 0
+    let failed = 0
+    for (const c of due) {
+      const { error } = await resendConsent(c)
+      if (error) failed++
+      else sent++
+      await new Promise((r) => setTimeout(r, 600))
+    }
     setResendingAll(false)
-    const failed = results.filter((r) => r.error).length
-    const sent = results.length - failed
-    showToast(
-      failed === 0
-        ? `${sent} relance${sent > 1 ? 's' : ''} envoyée${sent > 1 ? 's' : ''}`
-        : `${sent}/${results.length} relances envoyées, ${failed} en échec`,
-      failed === 0 ? 'success' : 'warning'
-    )
+    const parts = [`${sent} relance${sent > 1 ? 's' : ''} envoyée${sent > 1 ? 's' : ''}`]
+    if (skipped > 0) parts.push(`${skipped} déjà relancé${skipped > 1 ? 's' : ''} il y a moins de 10 min`)
+    if (failed > 0) parts.push(`${failed} en échec`)
+    showToast(parts.join(', '), failed === 0 ? 'success' : 'warning')
   }
 
   const stats = [
@@ -148,6 +166,53 @@ export function DashboardPage() {
 
   return (
     <div style={{ animation: 'nb-rise 0.5s var(--ease-standard) both' }}>
+      {cabinetViewAvailable && (
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex gap-1" role="group" aria-label="Envois affichés">
+            {[
+              [false, 'Mes envois'],
+              [true, 'Tout le cabinet'],
+            ].map(([on, label]) => {
+              const active = cabinetView === on
+              return (
+                <button
+                  key={String(on)}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    setCabinetView(on as boolean)
+                    setPractitionerFilter('all')
+                  }}
+                  className="cursor-pointer rounded-[3px] px-[14px] py-[7px] text-[0.8125rem] font-semibold"
+                  style={{
+                    background: active ? 'var(--action-primary)' : 'transparent',
+                    color: active ? 'var(--action-primary-text)' : 'var(--text-secondary)',
+                    border: active ? '1px solid transparent' : '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {label as string}
+                </button>
+              )
+            })}
+          </div>
+          {cabinetView && (
+            <select
+              aria-label="Praticien"
+              value={practitionerFilter}
+              onChange={(e) => setPractitionerFilter(e.target.value)}
+              className="rounded-[3px] px-3 py-[7px] text-[0.8125rem] outline-none"
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            >
+              <option value="all">Tous les praticiens</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {profileName(p)}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
       {/* ── Hero + stats ── */}
       <div className="grid gap-[26px] lg:grid-cols-[1.35fr_1fr]">
         <div
@@ -307,6 +372,12 @@ export function DashboardPage() {
                       <div className="mt-[3px] text-[13px]" style={{ color: 'var(--text-muted)' }}>
                         {c.email}
                       </div>
+                      {cabinetView && (
+                        <div className="mt-[6px] flex items-center gap-[6px] text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                          <span className="h-[8px] w-[8px] rounded-full" style={{ background: profileOf(c.practitioner_id).color }} />
+                          {profileName(profileOf(c.practitioner_id))}
+                        </div>
+                      )}
                     </div>
                     <Badge status={c.status} />
                   </div>

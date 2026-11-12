@@ -9,6 +9,8 @@ import { ClinicWelcomeModal } from '../profiles/ClinicModals'
 import { PinOfferModal } from '../profiles/PinOfferModal'
 import { SignatureSetupModal } from '../profiles/SignatureSetupModal'
 import { PinDialog } from '../profiles/PinDialog'
+import { ArchiveReminderModal } from '../settings/ArchiveReminderModal'
+import { countSignedInYear, exportReminderKey } from '../../lib/exportConsents'
 import { useProfilePins } from '../../hooks/useProfilePins'
 import { signAvatarUrls } from '../../lib/avatar'
 import { supabase } from '../../lib/supabase'
@@ -56,6 +58,12 @@ export interface DashboardOutletContext {
   >
   /** Après un changement de signature ou de tampon : recharge le profil et affiche le message. */
   onSignatureSaved: (message: string) => Promise<void>
+  /** Offre Clinique, profil du titulaire : il peut afficher les envois de tout le cabinet. */
+  cabinetViewAvailable: boolean
+  cabinetView: boolean
+  setCabinetView: (on: boolean) => void
+  /** Profil (titulaire ou praticien) au nom duquel un envoi a été fait. */
+  profileOf: (practitionerId: string | null) => Profile
   /** Codes à 4 chiffres des profils (offres Pro et Clinique). */
   pinApi: ReturnType<typeof useProfilePins>
   /** Le code de profil est utilisable par ce compte. */
@@ -99,7 +107,26 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }, [photoPaths])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const [cabinetView, setCabinetView] = useState(false)
   const doctorId = doctor?.id ?? null
+  // Rappel annuel : archive des documents signés l'année précédente (titulaire du compte).
+  const [archiveReminder, setArchiveReminder] = useState<{ year: number; count: number } | null>(null)
+  useEffect(() => {
+    if (!doctorId) return
+    const year = new Date().getFullYear() - 1
+    const key = exportReminderKey(doctorId, year)
+    try {
+      const state = localStorage.getItem(key)
+      if (state === 'done' || (state && Number(state) > Date.now())) return
+    } catch {
+      return
+    }
+    let cancelled = false
+    void countSignedInYear(doctorId, year).then((count) => !cancelled && count > 0 && setArchiveReminder({ year, count }))
+    return () => {
+      cancelled = true
+    }
+  }, [doctorId])
   // Numéro RPPS saisi à l'inscription : vérification dans l'Annuaire Santé, une fois par session.
   const rppsPending = Boolean(doctor?.rpps) && (doctor?.rpps_status ?? 'unverified') === 'unverified'
   useEffect(() => {
@@ -177,7 +204,13 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   // Un consentement dont le profil a été retiré revient au titulaire du compte.
   const activeIds = new Set(profiles.map((p) => p.id))
   const ownerOf = (practitionerId: string | null) => (practitionerId && activeIds.has(practitionerId) ? practitionerId : MAIN_PROFILE)
-  const consents = multiProfile ? allConsents.filter((c) => ownerOf(c.practitioner_id) === activeProfile.id) : allConsents
+  const profileOf = (practitionerId: string | null) => profiles.find((p) => p.id === ownerOf(practitionerId)) ?? profiles[0]
+  // Vue « Tout le cabinet » : réservée au profil du titulaire, pour qu'un profil protégé par un code
+  // ne soit pas lisible depuis celui d'un autre praticien.
+  const cabinetViewAvailable = multiProfile && activeProfile.isMain
+  const showCabinet = cabinetViewAvailable && cabinetView
+  const consents =
+    multiProfile && !showCabinet ? allConsents.filter((c) => ownerOf(c.practitioner_id) === activeProfile.id) : allConsents
 
   const selectProfile = (profileId: string) => {
     writeActiveProfile(doctor.id, profileId)
@@ -248,6 +281,10 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     pinApi,
     pinEnabled,
     onSignatureSaved,
+    cabinetViewAvailable,
+    cabinetView: showCabinet,
+    setCabinetView,
+    profileOf,
   }
 
   // Écran de sélection des profils : plein écran, sans l'en-tête du tableau de bord.
@@ -292,19 +329,39 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
       {showSend && (
         <SendModal
           onClose={() => setShowSend(false)}
-          onSend={async (form) => {
-            const result = await sendConsent(form, activeProfile.isMain ? null : activeProfile.id)
+          onSend={async (form, senderId) => {
+            const sender = senderId ?? activeProfile.id
+            const result = await sendConsent(form, sender === MAIN_PROFILE ? null : sender)
             if (!result.error) showToast(`Lien envoyé à ${form.patient}`)
             return result
           }}
           planId={doctor.plan}
           quotesEnabled={canSendQuotes(doctor)}
           doctorId={doctor.id}
+          senders={cabinetViewAvailable ? profiles : null}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
         />
       )}
 
+      {archiveReminder && activeProfile.isMain && !showClinicWelcome && !showSignatureSetup && !showPinOffer && !creatingPin && (
+        <ArchiveReminderModal
+          year={archiveReminder.year}
+          count={archiveReminder.count}
+          onLater={() => {
+            try {
+              localStorage.setItem(exportReminderKey(doctor.id, archiveReminder.year), String(Date.now() + 7 * 24 * 3600 * 1000))
+            } catch {
+              /* rappel à la prochaine ouverture */
+            }
+            setArchiveReminder(null)
+          }}
+          onDownload={() => {
+            setArchiveReminder(null)
+            navigate(`/settings?tab=documents&archive=${archiveReminder.year}`)
+          }}
+        />
+      )}
       {showSignatureSetup && (
         <SignatureSetupModal doctorId={doctor.id} profile={activeProfile} onSaved={onSignatureSaved} onLater={closeSignatureSetup} />
       )}

@@ -20,6 +20,9 @@ export interface Doctor {
   rpps?: string | null
   rpps_status?: 'unverified' | 'verified' | 'mismatch' | 'not_found'
   rpps_identity?: string | null
+  /** Nom du cabinet (toutes les offres) et logo (offre Clinique), affichés aux patients. */
+  cabinet_name?: string | null
+  logo_path?: string | null
   plan: PlanId
   plan_status: PlanStatus
   stripe_customer_id: string | null
@@ -65,7 +68,34 @@ export interface Consent {
   quote_signed_at?: string | null
   /** Devis signé (stockage privé `consents`). */
   quote_pdf_url?: string | null
+  /** Le lien patient n'est plus valable après cette date (prolongée à chaque relance). */
+  link_expires_at?: string
+  last_sent_at?: string | null
   created_at: string
+}
+
+/** Ce que la page patient reçoit (fonctions par jeton) : rien de plus que ce qu'elle affiche. */
+export interface PatientConsent {
+  id: string
+  patient: string
+  procedure: string
+  status: ConsentStatus
+  kind: ConsentKind
+  video_progress: number
+  sent_at: string
+  opened_at: string | null
+  viewed_at: string | null
+  signed_at: string | null
+  quote_name: string | null
+  quote_opened_at: string | null
+  /** Le cabinet a joint son formulaire de consentement. */
+  has_template: boolean
+  /** Lien expiré (30 jours sans signature). */
+  expired: boolean
+  cabinet_name: string | null
+  practitioner_name: string | null
+  /** Logo du cabinet disponible (offre Clinique). */
+  has_logo: boolean
 }
 
 /** Formulaire de consentement du cabinet (PDF) pour un acte. */

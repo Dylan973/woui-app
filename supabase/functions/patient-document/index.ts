@@ -5,6 +5,8 @@
 // - quote          : devis déposé par le cabinet (avant signature) — note l'ouverture du devis
 // - consent_signed : consentement signé
 // - quote_signed   : devis signé (à transmettre à la mutuelle)
+// - logo           : logo du cabinet (offre Clinique)
+// Un lien expiré ne donne plus accès aux documents à signer ; les documents signés restent téléchargeables.
 //
 // Accès patient sans compte : l'autorisation repose sur le token du lien.
 // Les fichiers restent dans des stockages privés ; seul ce lien temporaire est remis.
@@ -28,7 +30,7 @@ function json(body: unknown, status = 200) {
 const slug = (s: string) =>
   s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase() || 'document'
@@ -43,24 +45,28 @@ Deno.serve(async (req) => {
 
     const { data: consent } = await admin
       .from('consents')
-      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, pdf_url, quote_pdf_url')
+      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, pdf_url, quote_pdf_url, link_expires_at, doctors!inner(logo_path, plan)')
       .eq('token', token)
       .maybeSingle()
     if (!consent) return json({ error: 'Lien invalide' }, 404)
 
     const signed = consent.status === 'signed'
+    const expired = !signed && new Date(consent.link_expires_at).getTime() < Date.now()
+    const doctor = consent.doctors as unknown as { logo_path: string | null; plan: string }
+    if (expired && doc !== 'logo') return json({ error: 'Lien expiré' }, 410)
     const choice: Record<string, { bucket: string; path: string | null; name: string } | undefined> = {
       consent: consent.kind !== 'quote' ? { bucket: 'documents', path: consent.template_path, name: 'consentement' } : undefined,
       quote: consent.kind !== 'consent' ? { bucket: 'documents', path: consent.quote_path, name: 'devis' } : undefined,
       consent_signed: signed ? { bucket: 'consents', path: consent.pdf_url, name: 'consentement-signe' } : undefined,
       quote_signed: signed ? { bucket: 'consents', path: consent.quote_pdf_url, name: 'devis-signe' } : undefined,
+      logo: doctor.plan === 'clinic' ? { bucket: 'documents', path: doctor.logo_path, name: 'logo' } : undefined,
     }
     const target = choice[doc]
     if (!target?.path) return json({ error: 'Document indisponible' }, 404)
 
     const { data, error } = await admin.storage
       .from(target.bucket)
-      .createSignedUrl(target.path, 300, download ? { download: `${target.name}-${slug(consent.patient)}.pdf` } : undefined)
+      .createSignedUrl(target.path, doc === 'logo' ? 3600 : 300, download ? { download: `${target.name}-${slug(consent.patient)}.pdf` } : undefined)
     if (error || !data?.signedUrl) return json({ error: 'Document indisponible' }, 404)
 
     // Le devis doit avoir été ouvert avant de pouvoir être signé.

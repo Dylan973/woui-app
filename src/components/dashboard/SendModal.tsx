@@ -5,7 +5,8 @@ import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { PLANS, PROCEDURES } from '../../lib/constants'
 import { useConsentTemplates } from '../../hooks/useConsentTemplates'
-import type { ConsentKind, NewConsentForm, PlanId } from '../../types'
+import type { ConsentKind, NewConsentForm, PlanId, Profile } from '../../types'
+import { profileName } from '../../lib/profiles'
 
 const KINDS: { id: ConsentKind; label: string }[] = [
   { id: 'consent', label: 'Consentement' },
@@ -15,22 +16,25 @@ const KINDS: { id: ConsentKind; label: string }[] = [
 
 interface SendModalProps {
   onClose: () => void
-  onSend: (form: NewConsentForm) => Promise<{ error: string | null }>
+  onSend: (form: NewConsentForm, senderId: string | null) => Promise<{ error: string | null }>
   planId: PlanId
   used: number
   limit: number
   /** Envoi de devis : offres Pro et Clinique. */
   quotesEnabled: boolean
   doctorId: string
+  /** Offre Clinique, profil du titulaire : choix du praticien au nom duquel envoyer. */
+  senders?: Profile[] | null
 }
 
-export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId }: SendModalProps) {
+export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId, senders }: SendModalProps) {
   const navigate = useNavigate()
   const [form, setForm] = useState<NewConsentForm>({ patient: '', email: '', procedure: PROCEDURES[0], kind: 'consent', quoteFile: null })
   const { templates } = useConsentTemplates(doctorId)
   const withConsent = form.kind !== 'quote'
   const withQuote = form.kind !== 'consent'
   const hasTemplate = templates.some((t) => t.procedure === form.procedure)
+  const [senderId, setSenderId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +46,7 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
   const handleSend = async () => {
     setLoading(true)
     setError(null)
-    const { error: sendError } = await onSend(form)
+    const { error: sendError } = await onSend(form, senderId)
     setLoading(false)
     if (sendError) {
       setError(sendError)
@@ -136,6 +140,29 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
           </div>
 
           <div className="mt-5 flex flex-col gap-1">
+            {senders && senders.length > 1 && (
+              <label className="mb-5 flex flex-col gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
+                  Envoyé au nom de
+                </span>
+                <select
+                  value={senderId ?? senders[0].id}
+                  onChange={(e) => setSenderId(e.target.value)}
+                  className="w-full rounded-[3px] px-[14px] py-3 text-[1.0625rem] outline-none"
+                  style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+                >
+                  {senders.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {profileName(p)}
+                      {p.isMain ? ' (titulaire)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[12.5px]" style={{ color: 'var(--text-muted)' }}>
+                  Sa signature figure sur le PDF et l'envoi apparaît dans son tableau de bord.
+                </span>
+              </label>
+            )}
             <Input label="Nom du patient" value={form.patient} onChange={(e) => set('patient', e.target.value)} placeholder="Marie Dupont" />
             <Input
               label="Email"

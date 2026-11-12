@@ -143,7 +143,18 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
     const { error: fnError } = await supabase.functions.invoke('send-consent', {
       body: { consentId: consent.id },
     })
-    return { error: fnError ? fnError.message : null }
+    if (!fnError) return { error: null }
+    // Message explicite renvoyé par la fonction (ex. relance trop rapprochée).
+    const response = (fnError as { context?: Response }).context
+    if (response && typeof response.json === 'function') {
+      try {
+        const body = (await response.json()) as { error?: string }
+        if (body?.error) return { error: body.error }
+      } catch {
+        /* corps illisible : message générique */
+      }
+    }
+    return { error: "L'e-mail n'a pas pu partir. Réessayez dans un instant." }
   }, [])
 
   return { consents, loading, error, sendConsent, resendConsent, refetch: fetchConsents }

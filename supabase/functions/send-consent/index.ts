@@ -59,13 +59,15 @@ const SUBJECT: Record<Kind, string> = {
   both: 'documents à signer avant votre rendez-vous',
 }
 
-function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string; kind: Kind }) {
+function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string; kind: Kind; cabinet: string | null; logoUrl: string | null }) {
   return `<!doctype html>
 <html lang="fr"><body style="margin:0;background:#f6faf8;font-family:Poppins,Helvetica,Arial,sans-serif;color:#0c1f1a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6faf8;padding:32px 16px">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid rgba(12,31,26,.08);border-radius:16px">
         <tr><td style="padding:32px 32px 8px">
+          ${p.logoUrl ? `<img src="${esc(p.logoUrl)}" alt="${esc(p.cabinet ?? 'Logo du cabinet')}" style="display:block;max-height:48px;max-width:180px;margin:0 0 18px">` : ''}
+          ${p.cabinet ? `<div style="font-size:15px;font-weight:600;color:#0c1f1a;margin:0 0 4px">${esc(p.cabinet)}</div>` : ''}
           <div style="font-size:13px;color:#0b7a5c;font-weight:600;letter-spacing:.08em;text-transform:uppercase">${esc(p.doctorName)}</div>
           <div style="font-size:13px;color:rgba(12,31,26,.55);margin-top:2px">${esc(p.specialty)}</div>
           <h1 style="font-size:22px;line-height:1.3;margin:22px 0 0;font-weight:600">Bonjour ${esc(p.patient)},</h1>
@@ -78,7 +80,7 @@ function renderEmail(p: { patient: string; doctorName: string; specialty: string
         </td></tr>
         <tr><td style="padding:16px 32px 32px">
           <p style="font-size:12.5px;line-height:1.55;color:rgba(12,31,26,.5);margin:0">
-            Ce lien est personnel : ne le transférez pas. Si vous n'attendiez pas ce message, ignorez-le ou contactez votre cabinet.
+            Ce lien est personnel et valable 30 jours : ne le transférez pas. Si vous n'attendiez pas ce message, ignorez-le ou contactez votre cabinet.
           </p>
         </td></tr>
       </table>
@@ -102,18 +104,32 @@ Deno.serve(async (req: Request) => {
 
     const { data: consent, error: consentError } = await admin
       .from('consents')
-      .select('id, patient, email, token, status, kind, doctors!inner(user_id, first_name, last_name, specialty), practitioners(first_name, last_name, specialty)')
+      .select('id, doctor_id, patient, email, token, status, kind, last_sent_at, doctors!inner(user_id, first_name, last_name, specialty, cabinet_name, logo_path, plan), practitioners(first_name, last_name, specialty)')
       .eq('id', consentId)
       .maybeSingle()
 
     // Même réponse si le consentement n'existe pas ou appartient à un autre praticien.
     const doctor = consent?.doctors as unknown as
-      | { user_id: string; first_name: string | null; last_name: string | null; specialty: string | null }
+      | {
+          user_id: string
+          first_name: string | null
+          last_name: string | null
+          specialty: string | null
+          cabinet_name: string | null
+          logo_path: string | null
+          plan: string
+        }
       | undefined
     if (consentError || !consent || !doctor || doctor.user_id !== userData.user.id) {
       return json({ error: 'Consentement introuvable' }, 404)
     }
     if (consent.status === 'signed') return json({ error: 'Ce consentement est déjà signé' }, 409)
+
+    // Relances : 10 minutes minimum entre deux envois au même patient.
+    const RESEND_DELAY_MS = 10 * 60_000
+    if (consent.last_sent_at && Date.now() - new Date(consent.last_sent_at).getTime() < RESEND_DELAY_MS) {
+      return json({ error: 'Ce patient a déjà reçu un e-mail il y a moins de 10 minutes. Réessayez un peu plus tard.' }, 429)
+    }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) return json({ error: "Service d'email non configuré" }, 500)
@@ -122,6 +138,12 @@ Deno.serve(async (req: Request) => {
     const sender =
       (consent.practitioners as unknown as { first_name: string | null; last_name: string | null; specialty: string | null } | null) ?? doctor
     const doctorName = ['Dr', sender.first_name, sender.last_name].filter(Boolean).join(' ').trim()
+    // Logo du cabinet (offre Clinique) : lien valable 30 jours, comme le lien patient.
+    let logoUrl: string | null = null
+    if (doctor.plan === 'clinic' && doctor.logo_path) {
+      const { data: signedLogo } = await admin.storage.from('documents').createSignedUrl(doctor.logo_path, 30 * 24 * 3600)
+      logoUrl = signedLogo?.signedUrl ?? null
+    }
     const kind: Kind = consent.kind === 'quote' || consent.kind === 'both' ? consent.kind : 'consent'
     const html = renderEmail({
       patient: consent.patient,
@@ -129,6 +151,8 @@ Deno.serve(async (req: Request) => {
       specialty: sender.specialty ?? '',
       link: `${APP_URL}/sign/${encodeURIComponent(consent.token)}`,
       kind,
+      cabinet: doctor.cabinet_name,
+      logoUrl,
     })
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -147,6 +171,12 @@ Deno.serve(async (req: Request) => {
       console.error('Resend error:', await resendResponse.text())
       return json({ error: "L'email n'a pas pu être envoyé" }, 502)
     }
+
+    // Lien valable 30 jours à compter de ce dernier envoi.
+    await admin
+      .from('consents')
+      .update({ last_sent_at: new Date().toISOString(), link_expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString() })
+      .eq('id', consent.id)
 
     return json({ success: true })
   } catch (error) {

@@ -1,19 +1,23 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
-import { AppLayout } from './components/layout/AppLayout'
-import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { SettingsPage } from './pages/SettingsPage'
-import { SignaturePage } from './pages/SignaturePage'
-import { ResetPasswordPage } from './pages/ResetPasswordPage'
-import { SignupPage } from './pages/SignupPage'
-import { ProfilesPage } from './pages/ProfilesPage'
 import { Spinner } from './components/ui/Spinner'
+
+// Chaque écran est chargé à la demande : la page patient ne télécharge pas le tableau de bord.
+const AppLayout = lazy(() => import('./components/layout/AppLayout').then((m) => ({ default: m.AppLayout })))
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const SignaturePage = lazy(() => import('./pages/SignaturePage').then((m) => ({ default: m.SignaturePage })))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
+const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })))
+const ProfilesPage = lazy(() => import('./pages/ProfilesPage').then((m) => ({ default: m.ProfilesPage })))
 
 export default function App() {
   const { user, doctor, loading, signOut, refetchDoctor } = useAuth()
 
   return (
+    <Suspense fallback={<FullScreenSpinner />}>
     <Routes>
       {/* Public — accès patient via token, aucune authentification */}
       <Route path="/sign/:token" element={<SignaturePage />} />
@@ -61,6 +65,7 @@ export default function App() {
       <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
       <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
     </Routes>
+    </Suspense>
   )
 }
 

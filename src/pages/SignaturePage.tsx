@@ -4,14 +4,15 @@ import { supabase } from '../lib/supabase'
 import { VideoPlayer } from '../components/signature/VideoPlayer'
 import { SignatureCanvas, type SignatureCanvasHandle } from '../components/signature/SignatureCanvas'
 import { WOUI_LOGO_URL } from '../lib/constants'
-import type { Consent } from '../types'
+import type { PatientConsent } from '../types'
 
 type LoadState = 'loading' | 'not-found' | 'ready'
 type Theme = 'light' | 'dark'
 
 const THEME_KEY = 'woui_patient_theme'
-const MINT = '#11b184'
-const MINT_HOVER = '#0d8f6b'
+// Vert assez foncé pour un texte blanc lisible (contraste ≥ 4,5:1).
+const MINT = '#0b7d5d'
+const MINT_HOVER = '#096a4f'
 
 /** VideoPlayer déclenche onViewed à 90% ; la signature, elle, n'ouvre qu'à 97%. */
 const UNLOCK_AT = 97
@@ -29,7 +30,17 @@ function formatRemaining(seconds: number): string {
   return `${Math.max(1, Math.ceil(seconds))} s`
 }
 
-function PatientHeader({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+function PatientHeader({
+  theme,
+  onToggle,
+  cabinetName,
+  logoUrl,
+}: {
+  theme: Theme
+  onToggle: () => void
+  cabinetName?: string | null
+  logoUrl?: string | null
+}) {
   const [hover, setHover] = useState(false)
   return (
     <header className="mx-auto flex max-w-[680px] flex-wrap items-center justify-between gap-4 pb-[22px] pt-5">
@@ -38,15 +49,33 @@ function PatientHeader({ theme, onToggle }: { theme: Theme; onToggle: () => void
           par deux <img> conditionnels de 18px de haut. En attendant, la marque
           blanche existante est posée sur un carré menthe pour rester lisible
           sur les deux fonds. */}
-      <div className="flex items-center gap-2">
-        <span
-          className="flex items-center justify-center"
-          style={{ width: 22, height: 22, borderRadius: 6, background: MINT, padding: 4 }}
-        >
-          <img src={WOUI_LOGO_URL} alt="" className="h-full w-full object-contain" />
-        </span>
-        <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Woui</span>
-      </div>
+      {logoUrl || cabinetName ? (
+        <div className="flex min-w-0 items-center gap-3">
+          {logoUrl && (
+            <span
+              className="flex flex-none items-center justify-center overflow-hidden"
+              style={{ height: 40, maxWidth: 140, borderRadius: 8, background: '#ffffff', padding: '4px 8px' }}
+            >
+              <img src={logoUrl} alt={cabinetName ? `Logo ${cabinetName}` : 'Logo du cabinet'} style={{ maxHeight: 32, maxWidth: 124, objectFit: 'contain' }} />
+            </span>
+          )}
+          {cabinetName && (
+            <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', overflowWrap: 'anywhere' }}>
+              {cabinetName}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span
+            className="flex items-center justify-center"
+            style={{ width: 22, height: 22, borderRadius: 6, background: MINT, padding: 4 }}
+          >
+            <img src={WOUI_LOGO_URL} alt="" className="h-full w-full object-contain" />
+          </span>
+          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Woui</span>
+        </div>
+      )}
 
       <div className="flex items-center gap-2.5">
         <span
@@ -215,7 +244,8 @@ function DownloadButton({ label, onClick }: { label: string; onClick: () => void
 export function SignaturePage() {
   const { token } = useParams<{ token: string }>()
   const [state, setState] = useState<LoadState>('loading')
-  const [consent, setConsent] = useState<Consent | null>(null)
+  const [consent, setConsent] = useState<PatientConsent | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [confirmChecked, setConfirmChecked] = useState(false)
   const [quoteChecked, setQuoteChecked] = useState(false)
   const [quoteOpened, setQuoteOpened] = useState(false)
@@ -231,6 +261,15 @@ export function SignaturePage() {
   )
   const signatureRef = useRef<SignatureCanvasHandle>(null)
   const videoBlockRef = useRef<HTMLDivElement>(null)
+
+  // Titre de l'onglet : le nom du cabinet plutôt que celui du tableau de bord.
+  useEffect(() => {
+    const previous = document.title
+    document.title = consent?.cabinet_name ? `Vos documents — ${consent.cabinet_name}` : 'Vos documents à signer — Woui'
+    return () => {
+      document.title = previous
+    }
+  }, [consent?.cabinet_name])
 
   const toggleTheme = () =>
     setTheme((current) => {
@@ -253,7 +292,7 @@ export function SignaturePage() {
       const { data, error } = await supabase.rpc('get_consent_by_token', { p_token: token })
       if (cancelled) return
 
-      const row = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+      const row = (Array.isArray(data) ? data[0] : data) as PatientConsent | undefined
       if (error || !row) {
         setState('not-found')
         return
@@ -263,10 +302,18 @@ export function SignaturePage() {
       setQuoteOpened(Boolean(row.quote_opened_at))
       setState('ready')
 
+      // Logo du cabinet (offre Clinique) : lien temporaire remis par le serveur.
+      if (row.has_logo) {
+        void supabase.functions.invoke('patient-document', { body: { token, doc: 'logo' } }).then(({ data: logo }) => {
+          const url = (logo as { url?: string } | null)?.url
+          if (!cancelled && url) setLogoUrl(url)
+        })
+      }
+
       // Première ouverture du lien -> statut "opened".
-      if (row.status === 'sent') {
+      if (row.status === 'sent' && !row.expired) {
         const { data: updated } = await supabase.rpc('mark_consent_opened', { p_token: token })
-        const next = (Array.isArray(updated) ? updated[0] : updated) as Consent | undefined
+        const next = (Array.isArray(updated) ? updated[0] : updated) as PatientConsent | undefined
         if (!cancelled && next) setConsent(next)
       }
     }
@@ -299,7 +346,7 @@ export function SignaturePage() {
   const handleVideoViewed = async () => {
     if (!token) return
     const { data } = await supabase.rpc('mark_consent_viewed', { p_token: token })
-    const next = (Array.isArray(data) ? data[0] : data) as Consent | undefined
+    const next = (Array.isArray(data) ? data[0] : data) as PatientConsent | undefined
     if (next) setConsent(next)
   }
 
@@ -336,7 +383,7 @@ export function SignaturePage() {
       body: { token, signature: dataUrl },
     })
     setSigning(false)
-    const signed = (data as { consent?: Partial<Consent> } | null)?.consent
+    const signed = (data as { consent?: Partial<PatientConsent> } | null)?.consent
     if (error || !signed) {
       setSignError("La signature n'a pas pu être enregistrée. Vérifiez que la vidéo a été visionnée et que le devis a été ouvert, puis réessayez.")
       return
@@ -364,7 +411,7 @@ export function SignaturePage() {
         WebkitFontSmoothing: 'antialiased',
       }}
     >
-      <PatientHeader theme={theme} onToggle={toggleTheme} />
+      <PatientHeader theme={theme} onToggle={toggleTheme} cabinetName={consent?.cabinet_name} logoUrl={logoUrl} />
       <div className="mx-auto max-w-[680px]">{children}</div>
     </div>
   )
@@ -393,7 +440,8 @@ export function SignaturePage() {
     )
   }
 
-  if (state === 'not-found' || !consent) {
+  if (state === 'not-found' || !consent || (consent.expired && consent.status !== 'signed')) {
+    const expired = consent?.expired === true
     return shell(
       <div style={{ animation: 'wp-fade .3s both' }}>
         <Card padding="44px 32px">
@@ -418,10 +466,12 @@ export function SignaturePage() {
               </svg>
             </span>
             <h1 style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', marginTop: 18, color: 'var(--ink)' }}>
-              Ce lien n'est plus valide
+              {expired ? 'Ce lien a expiré' : "Ce lien n'est plus valide"}
             </h1>
             <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 380, marginTop: 10 }}>
-              Le lien de signature a expiré ou a déjà été utilisé. Contactez votre cabinet pour en recevoir un nouveau.
+              {expired
+                ? `Pour votre sécurité, les liens restent valables 30 jours. Contactez ${consent?.cabinet_name ?? 'votre cabinet'} pour en recevoir un nouveau.`
+                : 'Le lien de signature est introuvable. Vérifiez qu’il a été copié en entier, ou contactez votre cabinet.'}
             </p>
           </div>
         </Card>
@@ -549,7 +599,7 @@ export function SignaturePage() {
   const progress = Math.max(consent.video_progress ?? 0, liveProgress)
   const videoDone = !withConsent || progress >= UNLOCK_AT
   const unlocked = videoDone && (!withQuote || quoteOpened)
-  const hasDocuments = withQuote || Boolean(consent.template_path)
+  const hasDocuments = withQuote || consent.has_template
   const videoStep = 2
   const documentsStep = withConsent ? 3 : 2
   const signatureStep = 2 + (withConsent ? 1 : 0) + (hasDocuments ? 1 : 0)
@@ -572,6 +622,7 @@ export function SignaturePage() {
           >
             <Field label="Patient" value={consent.patient} />
             <Field label={withConsent ? 'Acte concerné' : 'Document'} value={withConsent ? consent.procedure : (consent.quote_name ?? 'Devis')} />
+            {consent.practitioner_name && <Field label="Praticien" value={`Dr ${consent.practitioner_name}`} />}
             <Field label="Envoyé le" value={formatLongDate(consent.sent_at)} />
           </div>
         </Card>
@@ -603,9 +654,9 @@ export function SignaturePage() {
         {/* ── Documents à lire : formulaire du cabinet, devis ── */}
         {hasDocuments && (
           <Card>
-            <StepHeading n={documentsStep}>{withQuote && !consent.template_path ? 'Votre devis' : 'Documents à lire'}</StepHeading>
+            <StepHeading n={documentsStep}>{withQuote && !consent.has_template ? 'Votre devis' : 'Documents à lire'}</StepHeading>
             <div className="flex flex-col gap-3" style={{ marginTop: 16 }}>
-              {withConsent && consent.template_path && (
+              {withConsent && consent.has_template && (
                 <DocumentRow
                   title="Formulaire de consentement"
                   note="Le document de votre cabinet, à lire avant de signer."
@@ -694,7 +745,7 @@ export function SignaturePage() {
                     style={{ width: 19, height: 19, accentColor: MINT, flexShrink: 0 }}
                   />
                   <span style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>
-                    Je certifie avoir visionné la vidéo d'information{consent.template_path ? ', avoir lu le formulaire de consentement' : ''} et
+                    Je certifie avoir visionné la vidéo d'information{consent.has_template ? ', avoir lu le formulaire de consentement' : ''} et
                     consens à l'acte médical mentionné ci-dessus.
                   </span>
                 </label>
