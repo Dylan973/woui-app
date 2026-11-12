@@ -16,6 +16,10 @@ export interface Doctor {
   photo_path?: string | null
   /** Signature ou tampon du praticien (stockage privé `documents`). */
   signature_path?: string | null
+  /** Numéro RPPS (11 chiffres) et résultat de sa vérification dans l'Annuaire Santé. */
+  rpps?: string | null
+  rpps_status?: 'unverified' | 'verified' | 'mismatch' | 'not_found'
+  rpps_identity?: string | null
   plan: PlanId
   plan_status: PlanStatus
   stripe_customer_id: string | null

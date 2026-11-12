@@ -54,6 +54,35 @@ export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
   const { activeProfile, pinApi, pinEnabled, onSignatureSaved } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
+  const [rpps, setRpps] = useState(doctor.rpps ?? '')
+  const [rppsBusy, setRppsBusy] = useState(false)
+  const rppsStatus = doctor.rpps ? (doctor.rpps_status ?? 'unverified') : null
+  const verifyRpps = async () => {
+    const value = rpps.replace(/\s/g, '')
+    if (!/^[0-9]{11}$/.test(value)) {
+      showToast('Le numéro RPPS contient 11 chiffres.', 'warning')
+      return
+    }
+    setRppsBusy(true)
+    const { data, error } = await supabase.functions.invoke('verify-rpps', { body: { rpps: value } })
+    setRppsBusy(false)
+    if (error) {
+      showToast('Le numéro n’a pas pu être enregistré. Réessayez.', 'warning')
+      return
+    }
+    await refetchDoctor()
+    const status = (data as { status?: string } | null)?.status
+    showToast(
+      status === 'verified'
+        ? 'Numéro RPPS vérifié'
+        : status === 'not_found'
+          ? 'Ce numéro est introuvable dans l’Annuaire Santé.'
+          : status === 'mismatch'
+            ? 'Le numéro existe, mais le nom ne correspond pas à celui du compte.'
+            : 'Numéro enregistré. La vérification sera faite prochainement.',
+      status === 'verified' || status === 'unverified' ? 'success' : 'warning'
+    )
+  }
   const [pinMode, setPinMode] = useState<'create' | 'change' | 'remove' | null>(null)
   const hasPin = pinApi.pins[activeProfile.id]?.hasPin ?? false
   // L'onglet vit dans l'URL : « Voir les plans » (modale de limite atteinte) ouvre
@@ -205,6 +234,46 @@ export function SettingsPage() {
             <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
               {doctor.email} — non modifiable
             </span>
+          </div>
+
+          <div className="mt-9 max-w-[700px] pt-7" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="font-display text-[18px]" style={{ color: 'var(--text-primary)' }}>
+                Numéro RPPS
+              </h3>
+              {rppsStatus && (
+                <span
+                  className="font-mono rounded-[3px] px-2 py-[3px] text-[10px] uppercase tracking-[0.1em]"
+                  style={{
+                    background: rppsStatus === 'verified' ? 'var(--mint-soft)' : rppsStatus === 'unverified' ? 'var(--surface-card-alt)' : 'var(--danger-bg)',
+                    color: rppsStatus === 'verified' ? 'var(--status-signed-text)' : rppsStatus === 'unverified' ? 'var(--text-muted)' : 'var(--danger-text)',
+                  }}
+                >
+                  {{ verified: 'Vérifié', unverified: 'En attente de vérification', mismatch: 'Nom à contrôler', not_found: 'Introuvable' }[rppsStatus]}
+                </span>
+              )}
+            </div>
+            <p className="mb-4 mt-[6px] text-[0.875rem]" style={{ color: 'var(--text-secondary)' }}>
+              {rppsStatus === 'not_found'
+                ? 'Ce numéro n’existe pas dans l’Annuaire Santé : les envois aux patients sont bloqués tant qu’il n’est pas corrigé.'
+                : rppsStatus === 'mismatch'
+                  ? `Dans l’Annuaire Santé, ce numéro est au nom de « ${doctor.rpps_identity ?? '—'} ». Vérifiez le numéro ou le nom du compte.`
+                  : 'Votre identifiant national de professionnel de santé (11 chiffres). Il sert à vérifier votre compte et n’apparaît pas sur les documents des patients.'}
+            </p>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-[220px] [&>label]:mb-0">
+                <Input
+                  label="Numéro RPPS"
+                  value={rpps}
+                  onChange={(e) => setRpps(e.target.value.replace(/[^0-9 ]/g, '').slice(0, 14))}
+                  placeholder="10001234567"
+                  inputMode="numeric"
+                />
+              </div>
+              <Button variant="ghost" onClick={verifyRpps} disabled={rppsBusy}>
+                {rppsBusy ? 'Vérification…' : doctor.rpps ? 'Vérifier à nouveau' : 'Enregistrer'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

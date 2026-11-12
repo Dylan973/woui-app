@@ -21,7 +21,7 @@ export function SignupPage() {
   const initialPlan = params.get('plan')
   const [plan, setPlan] = useState<PlanId>(isPlanId(initialPlan) ? initialPlan : 'pro')
   const [interval, setBillingInterval] = useState<BillingInterval>(params.get('interval') === 'yearly' ? 'yearly' : 'monthly')
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', rpps: '', email: '', password: '' })
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +32,11 @@ export function SignupPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const rpps = form.rpps.replace(/\s/g, '')
+    if (!/^[0-9]{11}$/.test(rpps)) {
+      setError('Le numéro RPPS contient 11 chiffres. Il figure sur votre carte CPS et sur vos ordonnances.')
+      return
+    }
     if (form.password.length < 10) {
       setError('Le mot de passe doit contenir au moins 10 caractères.')
       return
@@ -46,7 +51,7 @@ export function SignupPage() {
       password: form.password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), plan, interval },
+        data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), rpps, plan, interval },
       },
     })
     if (signUpError) {
@@ -157,6 +162,15 @@ export function SignupPage() {
           <Input label="Prénom" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} required autoComplete="given-name" />
           <Input label="Nom" value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required autoComplete="family-name" />
         </div>
+        <Input
+          label="Numéro RPPS (11 chiffres)"
+          value={form.rpps}
+          onChange={(e) => set('rpps', e.target.value.replace(/[^0-9 ]/g, '').slice(0, 14))}
+          placeholder="10001234567"
+          inputMode="numeric"
+          required
+          autoComplete="off"
+        />
         <Input
           label="Email professionnel"
           type="email"

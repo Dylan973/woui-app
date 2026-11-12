@@ -11,6 +11,7 @@ import { SignatureSetupModal } from '../profiles/SignatureSetupModal'
 import { PinDialog } from '../profiles/PinDialog'
 import { useProfilePins } from '../../hooks/useProfilePins'
 import { signAvatarUrls } from '../../lib/avatar'
+import { supabase } from '../../lib/supabase'
 import { useConsents } from '../../hooks/useConsents'
 import { usePractitioners } from '../../hooks/usePractitioners'
 import { PLANS } from '../../lib/constants'
@@ -99,6 +100,19 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   const [activeId, setActiveId] = useState<string | null>(null)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const doctorId = doctor?.id ?? null
+  // Numéro RPPS saisi à l'inscription : vérification dans l'Annuaire Santé, une fois par session.
+  const rppsPending = Boolean(doctor?.rpps) && (doctor?.rpps_status ?? 'unverified') === 'unverified'
+  useEffect(() => {
+    if (!doctorId || !rppsPending) return
+    const key = `woui-rpps-check-${doctorId}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      return
+    }
+    void supabase.functions.invoke('verify-rpps', { body: {} }).then(() => refetchDoctor())
+  }, [doctorId, rppsPending, refetchDoctor])
   useEffect(() => {
     setActiveId(doctorId ? readActiveProfile(doctorId) : null)
   }, [doctorId])
