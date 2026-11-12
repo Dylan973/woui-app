@@ -386,3 +386,5 @@ html.lenis{scroll-behavior:auto}
 .clinic-profiles span.add{background:none;border:2px dashed #ffffff55;color:#ffffffaa;font-size:24px}
 .clinic-profiles small{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;color:#c9c7de;font-size:10.5px}
 @media(max-width:820px){.clinic-band{grid-template-columns:1fr;padding:22px}.clinic-band h3{font-size:23px}}
+.clinic-band.solo{grid-template-columns:1fr}
+.clinic-band.solo ul{margin-bottom:0}

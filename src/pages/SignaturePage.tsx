@@ -149,11 +149,77 @@ function Card({ children, padding = 24 }: { children: React.ReactNode; padding?:
   )
 }
 
+function DocumentRow({
+  title,
+  note,
+  done = false,
+  onOpen,
+  onDownload,
+}: {
+  title: string
+  note: string
+  done?: boolean
+  onOpen: () => void
+  onDownload?: () => void
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3"
+      style={{ padding: 14, borderRadius: 12, background: 'var(--panel)', border: `1px solid ${done ? MINT : 'var(--line)'}` }}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={MINT} strokeWidth="1.8" aria-hidden="true" style={{ flexShrink: 0 }}>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+        <path d="M14 3v5h5M9 13h6M9 17h6" />
+      </svg>
+      <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--ink)', overflowWrap: 'anywhere' }}>{title}</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-3)', marginTop: 2 }}>{note}</div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="min-h-[44px] cursor-pointer"
+          style={{ padding: '9px 16px', fontSize: 13.5, fontWeight: 500, color: '#ffffff', background: MINT, border: 0, borderRadius: 10 }}
+        >
+          Lire le document
+        </button>
+        {onDownload && (
+          <button
+            type="button"
+            onClick={onDownload}
+            className="min-h-[44px] cursor-pointer"
+            style={{ padding: '9px 14px', fontSize: 13.5, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--line-2)', borderRadius: 10 }}
+          >
+            Télécharger
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DownloadButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-[48px] w-full cursor-pointer"
+      style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--ink)', background: 'transparent', border: '1px solid var(--line-2)', borderRadius: 12 }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function SignaturePage() {
   const { token } = useParams<{ token: string }>()
   const [state, setState] = useState<LoadState>('loading')
   const [consent, setConsent] = useState<Consent | null>(null)
   const [confirmChecked, setConfirmChecked] = useState(false)
+  const [quoteChecked, setQuoteChecked] = useState(false)
+  const [quoteOpened, setQuoteOpened] = useState(false)
+  const [docError, setDocError] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [justSigned, setJustSigned] = useState(false)
@@ -194,6 +260,7 @@ export function SignaturePage() {
       }
 
       setConsent(row)
+      setQuoteOpened(Boolean(row.quote_opened_at))
       setState('ready')
 
       // Première ouverture du lien -> statut "opened".
@@ -236,8 +303,27 @@ export function SignaturePage() {
     if (next) setConsent(next)
   }
 
+  // Les documents sont dans un stockage privé : le serveur remet un lien temporaire.
+  // L'onglet est ouvert avant l'appel pour ne pas être bloqué par le navigateur.
+  const openDocument = async (doc: 'consent' | 'quote' | 'consent_signed' | 'quote_signed', download = false) => {
+    if (!token) return
+    setDocError(null)
+    const tab = download ? null : window.open('', '_blank')
+    const { data, error } = await supabase.functions.invoke('patient-document', { body: { token, doc, download } })
+    const url = (data as { url?: string } | null)?.url
+    if (error || !url) {
+      tab?.close()
+      setDocError('Ce document est momentanément indisponible. Réessayez dans un instant.')
+      return
+    }
+    if (doc === 'quote') setQuoteOpened(true)
+    if (tab) tab.location.href = url
+    else window.location.assign(url)
+  }
+
   const handleSign = async () => {
-    if (!token || !confirmChecked) return
+    const kindNow = consent?.kind ?? 'consent'
+    if (!token || (kindNow !== 'quote' && !confirmChecked) || (kindNow !== 'consent' && !quoteChecked)) return
     const dataUrl = signatureRef.current?.getDataUrl()
     if (!dataUrl) {
       setSignError('Veuillez signer dans le cadre prévu avant de valider.')
@@ -252,7 +338,7 @@ export function SignaturePage() {
     setSigning(false)
     const signed = (data as { consent?: Partial<Consent> } | null)?.consent
     if (error || !signed) {
-      setSignError("Erreur lors de l'enregistrement de la signature. Vérifiez que la vidéo a bien été visionnée, puis réessayez.")
+      setSignError("La signature n'a pas pu être enregistrée. Vérifiez que la vidéo a été visionnée et que le devis a été ouvert, puis réessayez.")
       return
     }
     setConsent((c) => (c ? { ...c, ...signed } : c))
@@ -344,6 +430,21 @@ export function SignaturePage() {
   }
 
   const alreadySigned = consent.status === 'signed'
+  const kind = consent.kind ?? 'consent'
+  const withConsent = kind !== 'quote'
+  const withQuote = kind !== 'consent'
+  const docLabel = kind === 'consent' ? 'Consentement' : kind === 'quote' ? 'Devis' : 'Documents'
+  const signedDownloads = (
+    <div className="flex w-full flex-col gap-2" style={{ marginTop: 22 }}>
+      {withConsent && (
+        <DownloadButton label="Télécharger mon consentement signé" onClick={() => openDocument('consent_signed', true)} />
+      )}
+      {withQuote && (
+        <DownloadButton label="Télécharger mon devis signé (pour ma mutuelle)" onClick={() => openDocument('quote_signed', true)} />
+      )}
+      {docError && <p style={{ fontSize: 13, color: '#c0564c' }}>{docError}</p>}
+    </div>
+  )
 
   if (alreadySigned && !justSigned) {
     return shell(
@@ -368,12 +469,13 @@ export function SignaturePage() {
               </svg>
             </span>
             <h1 style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', marginTop: 18, color: 'var(--ink)' }}>
-              Consentement déjà signé
+              {kind === 'both' ? 'Documents déjà signés' : `${docLabel} déjà signé`}
             </h1>
             <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 400, marginTop: 10 }}>
-              Ce consentement a déjà été signé le {formatLongDate(consent.signed_at!)} à {formatHour(consent.signed_at!)}.
+              La signature a été enregistrée le {formatLongDate(consent.signed_at!)} à {formatHour(consent.signed_at!)}.
               Votre praticien en conserve une copie.
             </p>
+            {signedDownloads}
           </div>
         </Card>
       </div>
@@ -403,7 +505,7 @@ export function SignaturePage() {
               </svg>
             </span>
             <h1 style={{ fontSize: 23, fontWeight: 600, letterSpacing: '-0.02em', marginTop: 20, color: 'var(--ink)' }}>
-              Consentement enregistré
+              {kind === 'both' ? 'Documents signés' : `${docLabel} signé`}
             </h1>
             <p style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--ink-2)', maxWidth: 400, marginTop: 10 }}>
               Votre praticien a été notifié. Vous pouvez fermer cette page.
@@ -414,8 +516,8 @@ export function SignaturePage() {
               style={{ marginTop: 30, padding: 16, borderRadius: 12, background: 'var(--panel)', fontSize: 13 }}
             >
               <div className="flex justify-between gap-4">
-                <span style={{ color: 'var(--ink-2)' }}>Acte</span>
-                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{consent.procedure}</span>
+                <span style={{ color: 'var(--ink-2)' }}>{withConsent ? 'Acte' : 'Document'}</span>
+                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{withConsent ? consent.procedure : (consent.quote_name ?? 'Devis')}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span style={{ color: 'var(--ink-2)' }}>Signé le</span>
@@ -437,6 +539,7 @@ export function SignaturePage() {
                 </span>
               </div>
             </div>
+            {signedDownloads}
           </div>
         </Card>
       </div>
@@ -444,16 +547,21 @@ export function SignaturePage() {
   }
 
   const progress = Math.max(consent.video_progress ?? 0, liveProgress)
-  const unlocked = progress >= UNLOCK_AT
+  const videoDone = !withConsent || progress >= UNLOCK_AT
+  const unlocked = videoDone && (!withQuote || quoteOpened)
+  const hasDocuments = withQuote || Boolean(consent.template_path)
+  const videoStep = 2
+  const documentsStep = withConsent ? 3 : 2
+  const signatureStep = 2 + (withConsent ? 1 : 0) + (hasDocuments ? 1 : 0)
   const remainingSeconds = videoDuration > 0 ? (videoDuration * (UNLOCK_AT - progress)) / 100 : 0
-  const canSign = unlocked && confirmChecked && hasSignature && !signing
+  const canSign = unlocked && (!withConsent || confirmChecked) && (!withQuote || quoteChecked) && hasSignature && !signing
 
   return shell(
     <>
       <div className="flex flex-col gap-4">
         {/* ── 1 — Identification ── */}
         <Card>
-          <StepHeading n={1}>Votre consentement</StepHeading>
+          <StepHeading n={1}>{kind === 'consent' ? 'Votre consentement' : kind === 'quote' ? 'Votre devis' : 'Vos documents'}</StepHeading>
           <div
             style={{
               display: 'grid',
@@ -463,14 +571,15 @@ export function SignaturePage() {
             }}
           >
             <Field label="Patient" value={consent.patient} />
-            <Field label="Acte concerné" value={consent.procedure} />
+            <Field label={withConsent ? 'Acte concerné' : 'Document'} value={withConsent ? consent.procedure : (consent.quote_name ?? 'Devis')} />
             <Field label="Envoyé le" value={formatLongDate(consent.sent_at)} />
           </div>
         </Card>
 
-        {/* ── 2 — Vidéo ── */}
+        {/* ── Vidéo (envois avec consentement) ── */}
+        {withConsent && (
         <Card>
-          <StepHeading n={2}>Vidéo d'information</StepHeading>
+          <StepHeading n={videoStep}>Vidéo d'information</StepHeading>
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--ink-2)', margin: '14px 0 16px' }}>
             Regardez la vidéo en entier. Elle explique le déroulé de l'acte, les suites habituelles et les risques
             éventuels.
@@ -489,6 +598,37 @@ export function SignaturePage() {
             </span>
           </div>
         </Card>
+        )}
+
+        {/* ── Documents à lire : formulaire du cabinet, devis ── */}
+        {hasDocuments && (
+          <Card>
+            <StepHeading n={documentsStep}>{withQuote && !consent.template_path ? 'Votre devis' : 'Documents à lire'}</StepHeading>
+            <div className="flex flex-col gap-3" style={{ marginTop: 16 }}>
+              {withConsent && consent.template_path && (
+                <DocumentRow
+                  title="Formulaire de consentement"
+                  note="Le document de votre cabinet, à lire avant de signer."
+                  onOpen={() => openDocument('consent')}
+                />
+              )}
+              {withQuote && (
+                <DocumentRow
+                  title={consent.quote_name ?? 'Devis'}
+                  note={
+                    quoteOpened
+                      ? 'Devis ouvert. Vous pouvez le télécharger pour l’envoyer à votre mutuelle avant de signer.'
+                      : 'Ouvrez le devis pour pouvoir le signer. Vous pouvez aussi le télécharger pour votre mutuelle.'
+                  }
+                  done={quoteOpened}
+                  onOpen={() => openDocument('quote')}
+                  onDownload={() => openDocument('quote', true)}
+                />
+              )}
+              {docError && <p style={{ fontSize: 13, color: '#c0564c' }}>{docError}</p>}
+            </div>
+          </Card>
+        )}
 
         {/* ── 3 — Signature ── */}
         <Card>
@@ -501,7 +641,7 @@ export function SignaturePage() {
                 transition: 'filter .4s, opacity .4s',
               }}
             >
-              <StepHeading n={3}>Votre signature</StepHeading>
+              <StepHeading n={signatureStep}>Votre signature</StepHeading>
 
               <div className="flex items-center justify-between gap-3" style={{ marginTop: 18 }}>
                 <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>
@@ -545,17 +685,33 @@ export function SignaturePage() {
                 )}
               </div>
 
-              <label className="flex items-start gap-3" style={{ marginTop: 18 }}>
-                <input
-                  type="checkbox"
-                  checked={confirmChecked}
-                  onChange={(e) => setConfirmChecked(e.target.checked)}
-                  style={{ width: 19, height: 19, accentColor: MINT, flexShrink: 0 }}
-                />
-                <span style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>
-                  Je certifie avoir visionné la vidéo d'information et consens à l'acte médical mentionné ci-dessus.
-                </span>
-              </label>
+              {withConsent && (
+                <label className="flex items-start gap-3" style={{ marginTop: 18 }}>
+                  <input
+                    type="checkbox"
+                    checked={confirmChecked}
+                    onChange={(e) => setConfirmChecked(e.target.checked)}
+                    style={{ width: 19, height: 19, accentColor: MINT, flexShrink: 0 }}
+                  />
+                  <span style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+                    Je certifie avoir visionné la vidéo d'information{consent.template_path ? ', avoir lu le formulaire de consentement' : ''} et
+                    consens à l'acte médical mentionné ci-dessus.
+                  </span>
+                </label>
+              )}
+              {withQuote && (
+                <label className="flex items-start gap-3" style={{ marginTop: withConsent ? 12 : 18 }}>
+                  <input
+                    type="checkbox"
+                    checked={quoteChecked}
+                    onChange={(e) => setQuoteChecked(e.target.checked)}
+                    style={{ width: 19, height: 19, accentColor: MINT, flexShrink: 0 }}
+                  />
+                  <span style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+                    Bon pour accord : j'ai lu le devis, j'en ai compris le contenu et le montant restant à ma charge, et je l'accepte.
+                  </span>
+                </label>
+              )}
 
               {signError && (
                 <p style={{ marginTop: 12, fontSize: 13, lineHeight: 1.5, color: '#c0564c' }}>{signError}</p>
@@ -617,8 +773,10 @@ export function SignaturePage() {
                 </span>
                 <span style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>Signature verrouillée</span>
                 <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-2)', maxWidth: 330 }}>
-                  Elle se débloque dès que la vidéo d'information est visionnée en entier.
-                  {remainingSeconds > 0 && ` Il reste ${formatRemaining(remainingSeconds)} à regarder.`}
+                  {!videoDone
+                    ? "Elle se débloque dès que la vidéo d'information est visionnée en entier."
+                    : 'Elle se débloque dès que vous avez ouvert le devis.'}
+                  {!videoDone && remainingSeconds > 0 && ` Il reste ${formatRemaining(remainingSeconds)} à regarder.`}
                 </span>
               </div>
             )}

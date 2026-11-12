@@ -16,7 +16,7 @@ export const PLANS: Plan[] = [
       'Archivage 3 mois',
       'Support email',
     ],
-    locked: ['Notifications SMS', 'Profils praticiens', 'Branding personnalisé', 'Archivage illimité', 'Statistiques avancées'],
+    locked: ['Devis à signer en ligne', 'Notifications SMS', 'Profils praticiens', 'Branding personnalisé', 'Archivage illimité', 'Statistiques avancées'],
   },
   {
     id: 'pro',
@@ -29,6 +29,7 @@ export const PLANS: Plan[] = [
     limits: { consents: 100, templates: 5 },
     features: [
       '100 consentements / mois',
+      'Devis à signer en ligne',
       '5 modèles vidéo',
       'Notifications SMS/email',
       'Archivage 2 ans',
@@ -47,6 +48,7 @@ export const PLANS: Plan[] = [
     limits: { consents: 999999, templates: 999 },
     features: [
       'Consentements illimités',
+      'Devis à signer en ligne',
       'Modèles illimités',
       'Branding personnalisé',
       'Un profil par praticien',

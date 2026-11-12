@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { uploadPdf } from '../lib/documents'
 import type { Consent, NewConsentForm } from '../types'
 
 interface UseConsentsResult {
@@ -85,6 +86,15 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
     async (form: NewConsentForm, practitionerId: string | null = null) => {
       if (!doctorId) return { error: 'Praticien non identifié.' }
 
+      // Devis : le PDF est déposé dans le stockage privé du compte avant la création de l'envoi.
+      let quote: { quote_path: string; quote_name: string } | null = null
+      if (form.kind !== 'consent') {
+        if (!form.quoteFile) return { error: 'Ajoutez le devis au format PDF.' }
+        const uploaded = await uploadPdf(doctorId, 'devis', form.quoteFile)
+        if (uploaded.error || !uploaded.path) return { error: uploaded.error ?? 'Le devis n’a pas pu être envoyé.' }
+        quote = { quote_path: uploaded.path, quote_name: form.quoteFile.name.slice(0, 180) }
+      }
+
       const { data, error: insertError } = await supabase
         .from('consents')
         .insert([
@@ -92,7 +102,9 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
             doctor_id: doctorId,
             patient: form.patient,
             email: form.email,
-            procedure: form.procedure,
+            procedure: form.kind === 'quote' ? 'Devis' : form.procedure,
+            kind: form.kind,
+            ...(quote ?? {}),
             // Profil praticien qui envoie (offre Clinique) ; absent = titulaire du compte.
             ...(practitionerId ? { practitioner_id: practitionerId } : {}),
           },
@@ -117,7 +129,7 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
 
       if (fnError) {
         // Le consentement est bien créé même si l'email a échoué : on prévient sans bloquer.
-        return { error: `Consentement créé mais l'email n'a pas pu être envoyé (${fnError.message}).` }
+        return { error: "L'envoi est créé mais l'email n'a pas pu partir. Utilisez « Relancer » depuis le tableau de bord." }
       }
 
       return { error: null }

@@ -43,7 +43,23 @@ function esc(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
-function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string }) {
+type Kind = 'consent' | 'quote' | 'both'
+
+// Aucun détail médical ni montant dans l'email : tout se lit sur la page sécurisée.
+const INTRO: Record<Kind, string> = {
+  consent:
+    "Avant votre rendez-vous, votre praticien vous demande de prendre connaissance d'une courte vidéo d'information, puis de signer votre consentement en ligne.",
+  quote: 'Votre praticien vous transmet un devis. Vous pouvez le consulter, le télécharger pour votre mutuelle, puis le signer en ligne.',
+  both: "Avant votre rendez-vous, votre praticien vous transmet une courte vidéo d'information, votre consentement et un devis. Vous pouvez télécharger le devis pour votre mutuelle, puis signer vos documents en ligne.",
+}
+const BUTTON: Record<Kind, string> = { consent: 'Voir la vidéo et signer', quote: 'Consulter le devis', both: 'Ouvrir mes documents' }
+const SUBJECT: Record<Kind, string> = {
+  consent: 'document à signer avant votre rendez-vous',
+  quote: 'votre devis à consulter et à signer',
+  both: 'documents à signer avant votre rendez-vous',
+}
+
+function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string; kind: Kind }) {
   return `<!doctype html>
 <html lang="fr"><body style="margin:0;background:#f6faf8;font-family:Poppins,Helvetica,Arial,sans-serif;color:#0c1f1a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6faf8;padding:32px 16px">
@@ -54,11 +70,11 @@ function renderEmail(p: { patient: string; doctorName: string; specialty: string
           <div style="font-size:13px;color:rgba(12,31,26,.55);margin-top:2px">${esc(p.specialty)}</div>
           <h1 style="font-size:22px;line-height:1.3;margin:22px 0 0;font-weight:600">Bonjour ${esc(p.patient)},</h1>
           <p style="font-size:15px;line-height:1.6;color:rgba(12,31,26,.72);margin:12px 0 0">
-            Avant votre rendez-vous, votre praticien vous demande de prendre connaissance d'une courte vidéo d'information, puis de signer votre consentement en ligne.
+            ${esc(INTRO[p.kind])}
           </p>
         </td></tr>
         <tr><td style="padding:24px 32px 8px" align="left">
-          <a href="${esc(p.link)}" style="display:inline-block;background:#11b184;color:#ffffff;padding:14px 26px;border-radius:12px;text-decoration:none;font-weight:500;font-size:15px">Voir la vidéo et signer</a>
+          <a href="${esc(p.link)}" style="display:inline-block;background:#11b184;color:#ffffff;padding:14px 26px;border-radius:12px;text-decoration:none;font-weight:500;font-size:15px">${esc(BUTTON[p.kind])}</a>
         </td></tr>
         <tr><td style="padding:16px 32px 32px">
           <p style="font-size:12.5px;line-height:1.55;color:rgba(12,31,26,.5);margin:0">
@@ -86,7 +102,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: consent, error: consentError } = await admin
       .from('consents')
-      .select('id, patient, email, token, status, doctors!inner(user_id, first_name, last_name, specialty), practitioners(first_name, last_name, specialty)')
+      .select('id, patient, email, token, status, kind, doctors!inner(user_id, first_name, last_name, specialty), practitioners(first_name, last_name, specialty)')
       .eq('id', consentId)
       .maybeSingle()
 
@@ -106,11 +122,13 @@ Deno.serve(async (req: Request) => {
     const sender =
       (consent.practitioners as unknown as { first_name: string | null; last_name: string | null; specialty: string | null } | null) ?? doctor
     const doctorName = ['Dr', sender.first_name, sender.last_name].filter(Boolean).join(' ').trim()
+    const kind: Kind = consent.kind === 'quote' || consent.kind === 'both' ? consent.kind : 'consent'
     const html = renderEmail({
       patient: consent.patient,
       doctorName: doctorName === 'Dr' ? 'Votre cabinet dentaire' : doctorName,
       specialty: sender.specialty ?? '',
       link: `${APP_URL}/sign/${encodeURIComponent(consent.token)}`,
+      kind,
     })
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -120,7 +138,7 @@ Deno.serve(async (req: Request) => {
         from: RESEND_FROM,
         to: [consent.email],
         // Aucun acte médical dans l'email (donnée de santé) : il n'apparaît que sur la page sécurisée.
-        subject: `${doctorName === 'Dr' ? 'Votre cabinet dentaire' : doctorName} — document à signer avant votre rendez-vous`,
+        subject: `${doctorName === 'Dr' ? 'Votre cabinet dentaire' : doctorName} — ${SUBJECT[kind]}`,
         html,
       }),
     })

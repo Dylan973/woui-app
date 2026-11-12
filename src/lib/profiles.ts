@@ -13,6 +13,9 @@ export const canUseProfiles = (doctor: Doctor) =>
 export const canUsePin = (doctor: Doctor) =>
   (doctor.plan === 'pro' || doctor.plan === 'clinic') && (doctor.plan_status === 'active' || doctor.plan_status === 'trialing')
 
+/** L'envoi de devis à signer est réservé aux offres Pro et Clinique. */
+export const canSendQuotes = (doctor: Doctor) => doctor.plan === 'pro' || doctor.plan === 'clinic'
+
 /** Titulaire du compte en premier, puis les profils actifs. */
 export function buildProfiles(doctor: Doctor, practitioners: Practitioner[]): Profile[] {
   const main: Profile = {
@@ -23,13 +26,14 @@ export function buildProfiles(doctor: Doctor, practitioners: Practitioner[]): Pr
     color: PROFILE_COLORS[0],
     isMain: true,
     photo_path: doctor.photo_path ?? null,
+    signature_path: doctor.signature_path ?? null,
   }
   if (!canUseProfiles(doctor)) return [main]
   return [
     main,
     ...practitioners
       .filter((p) => !p.archived_at)
-      .map((p) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, specialty: p.specialty, color: p.color, isMain: false, photo_path: p.photo_path ?? null })),
+      .map((p) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, specialty: p.specialty, color: p.color, isMain: false, photo_path: p.photo_path ?? null, signature_path: p.signature_path ?? null })),
   ]
 }
 
@@ -77,5 +81,23 @@ export function markClinicWelcomeSeen(doctorId: string) {
     localStorage.setItem(welcomeKey(doctorId), '1')
   } catch {
     // sans stockage, le message pourra réapparaître
+  }
+}
+
+const signatureKey = (doctorId: string, profileId: string) => `woui-signature-prompt-${doctorId}-${profileId}`
+
+export function signaturePromptSeen(doctorId: string, profileId: string): boolean {
+  try {
+    return localStorage.getItem(signatureKey(doctorId, profileId)) === '1'
+  } catch {
+    return true
+  }
+}
+
+export function markSignaturePromptSeen(doctorId: string, profileId: string) {
+  try {
+    localStorage.setItem(signatureKey(doctorId, profileId), '1')
+  } catch {
+    // sans stockage, la proposition pourra réapparaître
   }
 }

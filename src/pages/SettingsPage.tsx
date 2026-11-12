@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { DocumentsTab } from '../components/settings/DocumentsTab'
 import { PinDialog, type PinStepKey } from '../components/profiles/PinDialog'
 import { profileName } from '../lib/profiles'
 import { supabase } from '../lib/supabase'
@@ -16,7 +17,7 @@ type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'secu
 const TABS: { id: TabId; label: string; soon?: boolean }[] = [
   { id: 'profile', label: 'Profil' },
   { id: 'team', label: 'Équipe' },
-  { id: 'documents', label: 'Documents PDF', soon: true },
+  { id: 'documents', label: 'Documents PDF' },
   { id: 'plan', label: 'Abonnement' },
   { id: 'notifications', label: 'Notifications', soon: true },
   { id: 'security', label: 'Sécurité' },
@@ -51,7 +52,7 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
-  const { activeProfile, pinApi, pinEnabled } = useOutletContext<DashboardOutletContext>()
+  const { activeProfile, pinApi, pinEnabled, onSignatureSaved } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
   const [pinMode, setPinMode] = useState<'create' | 'change' | 'remove' | null>(null)
   const hasPin = pinApi.pins[activeProfile.id]?.hasPin ?? false
@@ -129,7 +130,7 @@ export function SettingsPage() {
           ? 'Paiement en échec'
           : 'Plan actuel'
 
-  const soonTitle = { documents: 'Documents PDF', notifications: 'Notifications' }[tab as string]
+  const soonTitle = { notifications: 'Notifications' }[tab as string]
 
   const pinSteps: Record<'create' | 'change' | 'remove', { key: PinStepKey; title: string; hint?: string }[]> = {
     create: [
@@ -393,6 +394,10 @@ export function SettingsPage() {
             {trialLeft !== null && trialLeft > 2 && ' Aucun prélèvement avant la fin de votre essai.'}
           </p>
         </div>
+      )}
+
+      {tab === 'documents' && (
+        <DocumentsTab doctorId={doctor.id} activeProfile={activeProfile} onSignatureSaved={onSignatureSaved} showToast={showToast} />
       )}
 
       {tab === 'security' && (

@@ -7,6 +7,7 @@ import { Toast, type ToastType } from '../ui/Toast'
 import { Spinner } from '../ui/Spinner'
 import { ClinicWelcomeModal } from '../profiles/ClinicModals'
 import { PinOfferModal } from '../profiles/PinOfferModal'
+import { SignatureSetupModal } from '../profiles/SignatureSetupModal'
 import { PinDialog } from '../profiles/PinDialog'
 import { useProfilePins } from '../../hooks/useProfilePins'
 import { signAvatarUrls } from '../../lib/avatar'
@@ -18,7 +19,10 @@ import { hasSubscription, trialDaysLeft } from '../../lib/billing'
 import {
   MAIN_PROFILE,
   buildProfiles,
+  canSendQuotes,
   canUsePin,
+  markSignaturePromptSeen,
+  signaturePromptSeen,
   canUseProfiles,
   profileName,
   clinicWelcomeSeen,
@@ -49,6 +53,8 @@ export interface DashboardOutletContext {
     ReturnType<typeof usePractitioners>,
     'createPractitioner' | 'updatePractitioner' | 'archivePractitioner' | 'setPractitionerPhoto'
   >
+  /** Après un changement de signature ou de tampon : recharge le profil et affiche le message. */
+  onSignatureSaved: (message: string) => Promise<void>
   /** Codes à 4 chiffres des profils (offres Pro et Clinique). */
   pinApi: ReturnType<typeof useProfilePins>
   /** Le code de profil est utilisable par ce compte. */
@@ -69,8 +75,16 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
 
   const location = useLocation()
   const { consents: allConsents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
-  const { practitioners, loading: practitionersLoading, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto } =
-    usePractitioners(doctor?.id ?? null)
+  const {
+    practitioners,
+    loading: practitionersLoading,
+    refetch: refetchPractitioners,
+    createPractitioner,
+    updatePractitioner,
+    archivePractitioner,
+    setPractitionerPhoto,
+  } = usePractitioners(doctor?.id ?? null)
+  const [signatureDismissed, setSignatureDismissed] = useState(false)
   const pinApi = useProfilePins(doctor?.id ?? null)
   const [creatingPin, setCreatingPin] = useState(false)
   const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({})
@@ -158,9 +172,25 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }
   const showClinicWelcome =
     profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
+  // Première ouverture d'un profil : on propose d'enregistrer sa signature ou son tampon (toutes les offres).
+  const showSignatureSetup =
+    !onProfilesPage &&
+    !showClinicWelcome &&
+    !signatureDismissed &&
+    !activeProfile.signature_path &&
+    !signaturePromptSeen(doctor.id, activeProfile.id)
+  const closeSignatureSetup = () => {
+    markSignaturePromptSeen(doctor.id, activeProfile.id)
+    setSignatureDismissed(true)
+  }
+  const onSignatureSaved = async (message: string) => {
+    await Promise.all([refetchDoctor(), refetchPractitioners()])
+    closeSignatureSetup()
+    setToast({ msg: message, type: 'success' })
+  }
   // Première ouverture d'un profil : on propose une fois de le protéger par un code.
   const activePin = pinApi.pins[activeProfile.id]
-  const showPinOffer = pinEnabled && !onProfilesPage && !showClinicWelcome && !creatingPin && !activePin?.hasPin && !activePin?.offered
+  const showPinOffer = pinEnabled && !onProfilesPage && !showClinicWelcome && !showSignatureSetup && !creatingPin && !activePin?.hasPin && !activePin?.offered
   const closeClinicWelcome = (goToProfiles: boolean) => {
     markClinicWelcomeSeen(doctor.id)
     setWelcomeDismissed(true)
@@ -203,6 +233,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto },
     pinApi,
     pinEnabled,
+    onSignatureSaved,
   }
 
   // Écran de sélection des profils : plein écran, sans l'en-tête du tableau de bord.
@@ -253,11 +284,16 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
             return result
           }}
           planId={doctor.plan}
+          quotesEnabled={canSendQuotes(doctor)}
+          doctorId={doctor.id}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
         />
       )}
 
+      {showSignatureSetup && (
+        <SignatureSetupModal doctorId={doctor.id} profile={activeProfile} onSaved={onSignatureSaved} onLater={closeSignatureSetup} />
+      )}
       {showPinOffer && (
         <PinOfferModal
           profileLabel={profileName(activeProfile)}

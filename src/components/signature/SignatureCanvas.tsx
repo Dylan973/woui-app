@@ -89,7 +89,8 @@ export const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvas
       className="block w-full touch-none"
       style={{
         height: 200,
-        background: 'var(--card)',
+        // Toujours blanc, comme une feuille : le trait est noir et doit rester visible en thème sombre.
+        background: '#ffffff',
         border: '1.5px dashed rgba(17,177,132,.45)',
         borderRadius: 14,
         cursor: disabled ? 'not-allowed' : 'crosshair',

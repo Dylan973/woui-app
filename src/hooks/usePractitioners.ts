@@ -7,6 +7,7 @@ interface UsePractitionersResult {
   practitioners: Practitioner[]
   loading: boolean
   createPractitioner: (form: ProfileForm) => Promise<{ error: string | null; id?: string }>
+  refetch: () => Promise<void>
   setPractitionerPhoto: (id: string, photoPath: string | null) => Promise<{ error: string | null }>
   updatePractitioner: (id: string, form: ProfileForm) => Promise<{ error: string | null }>
   archivePractitioner: (id: string) => Promise<{ error: string | null }>
@@ -94,5 +95,5 @@ export function usePractitioners(doctorId: string | null): UsePractitionersResul
     [fetchAll]
   )
 
-  return { practitioners, loading, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto }
+  return { practitioners, loading, refetch: fetchAll, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto }
 }

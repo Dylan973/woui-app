@@ -91,10 +91,11 @@ export function DashboardPage() {
   }, [consents])
 
   // Les PDF sont dans un stockage privé : lien temporaire (60 s) généré à la demande.
-  const downloadPdf = async (consent: Consent) => {
-    if (!consent.pdf_url) return
-    const { data, error } = await supabase.storage.from('consents').createSignedUrl(consent.pdf_url, 60, {
-      download: `consentement-${consent.patient.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+  const downloadPdf = async (consent: Consent, doc: 'consent' | 'quote' = 'consent') => {
+    const path = doc === 'quote' ? consent.quote_pdf_url : consent.pdf_url
+    if (!path) return
+    const { data, error } = await supabase.storage.from('consents').createSignedUrl(path, 60, {
+      download: `${doc === 'quote' ? 'devis' : 'consentement'}-${consent.patient.replace(/\s+/g, '-').toLowerCase()}.pdf`,
     })
     if (error || !data?.signedUrl) {
       showToast('Le PDF est momentanément indisponible. Réessayez dans un instant.', 'warning')
@@ -313,9 +314,14 @@ export function DashboardPage() {
                   <div className="mt-5 flex flex-wrap gap-[26px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                     <div>
                       <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                        Acte
+                        {c.kind === 'quote' ? 'Document' : 'Acte'}
                       </div>
-                      {c.procedure}
+                      {c.kind === 'quote' ? (c.quote_name ?? 'Devis') : c.procedure}
+                      {c.kind === 'both' && (
+                        <span className="ml-2 rounded-[3px] px-[6px] py-[2px] text-[11px]" style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}>
+                          + devis
+                        </span>
+                      )}
                     </div>
                     <div>
                       <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
@@ -323,14 +329,23 @@ export function DashboardPage() {
                       </div>
                       <span className="font-mono">{formatShortDate(c.sent_at)}</span>
                     </div>
-                    <div className="ml-auto min-w-[90px]">
-                      <div className="font-mono mb-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                        Vidéo {c.video_progress}%
+                    {c.kind === 'quote' ? (
+                      <div className="ml-auto text-right">
+                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                          Devis
+                        </div>
+                        {c.quote_opened_at ? 'Ouvert' : 'Pas encore ouvert'}
                       </div>
-                      <div className="h-[2px]" style={{ background: 'var(--border-subtle)' }}>
-                        <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--mint)' }} />
+                    ) : (
+                      <div className="ml-auto min-w-[90px]">
+                        <div className="font-mono mb-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                          Vidéo {c.video_progress}%
+                        </div>
+                        <div className="h-[2px]" style={{ background: 'var(--border-subtle)' }}>
+                          <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--mint)' }} />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div
@@ -338,14 +353,27 @@ export function DashboardPage() {
                     style={{ borderTop: '1px solid var(--border-subtle)' }}
                   >
                     {c.status === 'signed' ? (
-                      c.pdf_url ? (
-                        <button
-                          onClick={() => downloadPdf(c)}
-                          className="cursor-pointer text-[0.8125rem]"
-                          style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
-                        >
-                          Télécharger le PDF signé
-                        </button>
+                      c.pdf_url || c.quote_pdf_url ? (
+                        <span className="flex flex-wrap gap-x-[18px] gap-y-1">
+                          {c.pdf_url && (
+                            <button
+                              onClick={() => downloadPdf(c)}
+                              className="cursor-pointer text-[0.8125rem]"
+                              style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                            >
+                              {c.quote_pdf_url ? 'Consentement signé' : 'Télécharger le PDF signé'}
+                            </button>
+                          )}
+                          {c.quote_pdf_url && (
+                            <button
+                              onClick={() => downloadPdf(c, 'quote')}
+                              className="cursor-pointer text-[0.8125rem]"
+                              style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                            >
+                              {c.pdf_url ? 'Devis signé' : 'Télécharger le devis signé'}
+                            </button>
+                          )}
+                        </span>
                       ) : (
                         <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
                           PDF en préparation
