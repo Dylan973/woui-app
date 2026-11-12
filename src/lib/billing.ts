@@ -14,6 +14,9 @@ async function redirectFrom(fn: 'stripe-checkout' | 'stripe-portal', body: objec
 /** Ouvre Stripe Checkout pour le plan choisi. Renvoie un message d'erreur, ou null si redirigé. */
 export const startCheckout = (plan: PlanId, interval: BillingInterval) => redirectFrom('stripe-checkout', { plan, interval })
 
+/** Durée de l'essai gratuit (carte bancaire demandée, aucun prélèvement avant la fin). */
+export const TRIAL_DAYS = 7
+
 /** Ouvre le portail client Stripe (factures, carte, changement de plan, résiliation). */
 export const openBillingPortal = () => redirectFrom('stripe-portal', {})
 

@@ -1,6 +1,9 @@
 // Crée une session Stripe Checkout pour souscrire un abonnement Woui.
+// Premier abonnement : 7 jours d'essai gratuit, carte obligatoire.
 // Si un abonnement existe déjà, renvoie vers le portail client (changement de plan).
 import { APP_URL, notConfigured, portalConfigurationId, stripeConfigured, admin, corsHeaders, currentDoctor, json, lookupKey, stripe, type Interval, type PlanId } from '../_shared/stripe.ts'
+
+const TRIAL_DAYS = 7
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
@@ -40,29 +43,38 @@ Deno.serve(async (req) => {
       await admin.from('doctors').update({ stripe_customer_id: customerId }).eq('id', doctor.id)
     }
 
-    // On conserve les jours d'essai restants : le premier prélèvement a lieu à la fin de l'essai.
-    const trialEnd =
-      doctor.plan_status === 'trialing' && doctor.plan_expires_at
-        ? Math.floor(new Date(doctor.plan_expires_at).getTime() / 1000)
-        : null
-    const keepTrial = trialEnd !== null && trialEnd - Date.now() / 1000 > 48 * 3600
+    // Essai gratuit de 7 jours avec carte : réservé aux comptes qui n'ont jamais eu d'abonnement.
+    // La carte est obligatoire ; aucun prélèvement avant la fin de l'essai.
+    const firstSubscription = doctor.plan_status === 'incomplete' && !doctor.stripe_subscription_id
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       client_reference_id: doctor.id,
       line_items: [{ price: price.id, quantity: 1 }],
+      payment_method_collection: 'always',
       subscription_data: {
         metadata: { doctor_id: doctor.id },
-        ...(keepTrial ? { trial_end: trialEnd! } : {}),
+        ...(firstSubscription
+          ? { trial_period_days: TRIAL_DAYS, trial_settings: { end_behavior: { missing_payment_method: 'cancel' as const } } }
+          : {}),
       },
+      ...(firstSubscription
+        ? {
+            custom_text: {
+              submit: {
+                message: `Aucun prélèvement aujourd'hui. Votre essai gratuit dure ${TRIAL_DAYS} jours ; vous pouvez résilier à tout moment avant la fin depuis Woui.`,
+              },
+            },
+          }
+        : {}),
       allow_promotion_codes: true,
       billing_address_collection: 'required',
       tax_id_collection: { enabled: true },
       customer_update: { name: 'auto', address: 'auto' },
       locale: 'fr',
-      success_url: `${APP_URL}/settings?tab=plan&checkout=success`,
-      cancel_url: `${APP_URL}/settings?tab=plan`,
+      success_url: firstSubscription ? `${APP_URL}/dashboard?checkout=success` : `${APP_URL}/settings?tab=plan&checkout=success`,
+      cancel_url: firstSubscription ? `${APP_URL}/dashboard` : `${APP_URL}/settings?tab=plan`,
     })
 
     return json({ url: session.url })

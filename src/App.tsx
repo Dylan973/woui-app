@@ -10,7 +10,7 @@ import { SignupPage } from './pages/SignupPage'
 import { Spinner } from './components/ui/Spinner'
 
 export default function App() {
-  const { user, doctor, loading, signOut } = useAuth()
+  const { user, doctor, loading, signOut, refetchDoctor } = useAuth()
 
   return (
     <Routes>
@@ -46,7 +46,7 @@ export default function App() {
           loading ? (
             <FullScreenSpinner />
           ) : user ? (
-            <AppLayout doctor={doctor} authLoading={loading} onSignOut={signOut} />
+            <AppLayout doctor={doctor} authLoading={loading} onSignOut={signOut} refetchDoctor={refetchDoctor} />
           ) : (
             <Navigate to="/login" replace />
           )

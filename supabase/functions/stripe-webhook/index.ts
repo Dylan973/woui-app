@@ -15,12 +15,14 @@ async function loadWebhookSecret() {
 }
 const cryptoProvider = Stripe.createSubtleCryptoProvider()
 
-function mapStatus(status: Stripe.Subscription.Status): 'active' | 'trialing' | 'past_due' | 'cancelled' {
+function mapStatus(status: Stripe.Subscription.Status): 'active' | 'trialing' | 'past_due' | 'cancelled' | 'incomplete' {
   switch (status) {
     case 'active':
       return 'active'
     case 'trialing':
       return 'trialing'
+    case 'incomplete':
+      return 'incomplete'
     case 'canceled':
     case 'incomplete_expired':
       return 'cancelled'

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { Header } from './Header'
+import { ActivateTrial } from './ActivateTrial'
 import { SendModal } from '../dashboard/SendModal'
 import { Toast, type ToastType } from '../ui/Toast'
 import { Spinner } from '../ui/Spinner'
@@ -24,9 +25,10 @@ interface AppLayoutProps {
   doctor: Doctor | null
   authLoading: boolean
   onSignOut: () => Promise<void>
+  refetchDoctor: () => Promise<void>
 }
 
-export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
+export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: AppLayoutProps) {
   const navigate = useNavigate()
   const [showSend, setShowSend] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
@@ -64,13 +66,23 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
     )
   }
 
+  // Carte pas encore enregistrée : l'essai gratuit n'a pas démarré.
+  if (doctor.plan_status === 'incomplete') {
+    return <ActivateTrial doctor={doctor} refetchDoctor={refetchDoctor} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
+  }
+
   const plan = PLANS.find((p) => p.id === doctor.plan) ?? PLANS[0]
   const showToast = (msg: string, type: ToastType = 'success') => setToast({ msg, type })
-  const trialLeft = hasSubscription(doctor) ? null : trialDaysLeft(doctor)
+  const subscribed = hasSubscription(doctor)
+  const trialLeft = trialDaysLeft(doctor)
   const billingAlert =
     trialLeft !== null
       ? trialLeft > 0
-        ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}.`
+        ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}.${
+            subscribed && doctor.plan_expires_at
+              ? ` Premier prélèvement le ${new Date(doctor.plan_expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.`
+              : ''
+          }`
         : 'Votre essai gratuit est terminé.'
       : doctor.plan_status === 'past_due'
         ? 'Le dernier paiement a échoué.'
@@ -101,7 +113,7 @@ export function AppLayout({ doctor, authLoading, onSignOut }: AppLayoutProps) {
             className="cursor-pointer font-semibold"
             style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
           >
-            {trialLeft !== null ? 'Choisir mon plan →' : 'Régler maintenant →'}
+            {trialLeft !== null ? (subscribed ? 'Gérer mon abonnement →' : 'Choisir mon plan →') : 'Régler maintenant →'}
           </button>
         </div>
       )}

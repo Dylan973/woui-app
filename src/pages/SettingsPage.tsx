@@ -108,9 +108,12 @@ export function SettingsPage() {
   const pct = Math.min(100, Math.round((usedThisMonth / (limit >= 999999 ? 100 : limit)) * 100))
 
   const subscribed = hasSubscription(doctor)
-  const trialLeft = subscribed ? null : trialDaysLeft(doctor)
+  const trialLeft = trialDaysLeft(doctor)
+  const trialEndLabel = doctor.plan_expires_at
+    ? new Date(doctor.plan_expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+    : null
   const statusLabel =
-    doctor.plan_status === 'trialing' && !subscribed
+    doctor.plan_status === 'trialing'
       ? 'Essai gratuit'
       : doctor.plan_status === 'cancelled'
         ? 'Abonnement résilié'
@@ -205,9 +208,11 @@ export function SettingsPage() {
                 </div>
                 {trialLeft !== null && (
                   <div className="mt-2 text-[0.9375rem]" style={{ color: trialLeft <= 3 ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
-                    {trialLeft > 0
-                      ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}. Choisissez un plan pour continuer après l'essai.`
-                      : 'Votre essai gratuit est terminé. Choisissez un plan pour continuer à envoyer des consentements.'}
+                    {subscribed
+                      ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}. Premier prélèvement le ${trialEndLabel}, sauf résiliation avant cette date.`
+                      : trialLeft > 0
+                        ? `Essai gratuit : ${trialLeft} jour${trialLeft > 1 ? 's' : ''} restant${trialLeft > 1 ? 's' : ''}.`
+                        : 'Votre essai gratuit est terminé. Choisissez un plan pour continuer à envoyer des consentements.'}
                   </div>
                 )}
                 {doctor.plan_status === 'past_due' && (

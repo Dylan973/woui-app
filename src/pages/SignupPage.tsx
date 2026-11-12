@@ -4,20 +4,23 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { LEGAL_URLS, PLANS, WOUI_LOGO_URL } from '../lib/constants'
-import type { PlanId } from '../types'
+import { startCheckout, TRIAL_DAYS } from '../lib/billing'
+import type { BillingInterval, PlanId } from '../types'
 
 const isPlanId = (v: string | null): v is PlanId => v === 'starter' || v === 'pro' || v === 'clinic'
 
 /**
- * Inscription en libre-service : 7 jours d'essai gratuit, sans carte bancaire.
- * La fiche praticien est créée automatiquement côté base (trigger on_auth_user_created).
- * Le site vitrine peut lier directement /signup?plan=starter|pro|clinic.
+ * Inscription en libre-service : 7 jours d'essai gratuit, carte bancaire demandée (aucun prélèvement pendant l'essai).
+ * La fiche praticien est créée automatiquement côté base (trigger on_auth_user_created) au statut « incomplete » ;
+ * l'essai démarre quand la carte est enregistrée dans Stripe Checkout (écran ActivateTrial).
+ * Le site vitrine peut lier directement /signup?plan=starter|pro|clinic&interval=monthly|yearly.
  */
 export function SignupPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const initialPlan = params.get('plan')
   const [plan, setPlan] = useState<PlanId>(isPlanId(initialPlan) ? initialPlan : 'pro')
+  const [interval, setBillingInterval] = useState<BillingInterval>(params.get('interval') === 'yearly' ? 'yearly' : 'monthly')
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' })
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -43,11 +46,11 @@ export function SignupPage() {
       password: form.password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), plan },
+        data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), plan, interval },
       },
     })
-    setLoading(false)
     if (signUpError) {
+      setLoading(false)
       setError(
         /registered|already/i.test(signUpError.message)
           ? 'Un compte existe déjà avec cet email. Connectez-vous ou réinitialisez votre mot de passe.'
@@ -55,8 +58,14 @@ export function SignupPage() {
       )
       return
     }
-    if (data.session) navigate('/dashboard', { replace: true })
-    else setSentTo(form.email.trim())
+    if (data.session) {
+      // Compte créé et connecté : on enchaîne directement sur l'enregistrement de la carte.
+      const checkoutError = await startCheckout(plan, interval)
+      if (checkoutError) navigate('/dashboard', { replace: true })
+      return
+    }
+    setLoading(false)
+    setSentTo(form.email.trim())
   }
 
   const card = (children: React.ReactNode) => (
@@ -82,8 +91,8 @@ export function SignupPage() {
           Vérifiez votre boîte mail
         </h1>
         <p className="text-[0.9375rem] leading-[1.6]" style={{ color: 'var(--text-secondary)' }}>
-          Nous avons envoyé un lien de confirmation à <b>{sentTo}</b>. Cliquez dessus pour activer votre compte et démarrer vos
-          7 jours d'essai.
+          Nous avons envoyé un lien de confirmation à <b>{sentTo}</b>. Cliquez dessus pour confirmer votre adresse, puis
+          enregistrez votre carte pour démarrer vos {TRIAL_DAYS} jours d'essai gratuit.
         </p>
         <Link to="/login" className="text-[13px]" style={{ color: 'var(--text-accent)' }}>
           Retour à la connexion
@@ -95,13 +104,30 @@ export function SignupPage() {
   return card(
     <>
       <h1 className="font-display text-[1.75rem]" style={{ color: 'var(--text-primary)' }}>
-        Essai gratuit 7 jours
+        Essai gratuit {TRIAL_DAYS} jours
       </h1>
       <p className="text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-        Sans carte bancaire. Votre premier consentement part en 2 minutes.
+        Aucun prélèvement pendant l'essai. Carte demandée à l'étape suivante, résiliable à tout moment.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 w-full text-left">
+        <div className="mb-3 flex items-center justify-center gap-1">
+          {(['monthly', 'yearly'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setBillingInterval(value)}
+              className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px]"
+              style={{
+                background: interval === value ? 'var(--action-primary)' : 'transparent',
+                color: interval === value ? 'var(--action-primary-text)' : 'var(--text-muted)',
+                border: interval === value ? 'none' : '1px solid var(--border-subtle)',
+              }}
+            >
+              {value === 'monthly' ? 'Mensuel' : 'Annuel −20 %'}
+            </button>
+          ))}
+        </div>
         <div className="mb-5 grid grid-cols-3 gap-2">
           {PLANS.map((p) => {
             const active = plan === p.id
@@ -120,7 +146,7 @@ export function SignupPage() {
               >
                 <span className="text-[0.8125rem] font-semibold">{p.name}</span>
                 <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                  {p.price} € / mois
+                  {interval === 'yearly' ? `${p.yearlyPrice} € / an` : `${p.price} € / mois`}
                 </span>
               </button>
             )

@@ -1,7 +1,7 @@
 export type PlanId = 'starter' | 'pro' | 'clinic'
 export type ConsentStatus = 'sent' | 'opened' | 'viewed' | 'signed'
 export type BillingInterval = 'monthly' | 'yearly'
-export type PlanStatus = 'active' | 'cancelled' | 'past_due' | 'trialing'
+export type PlanStatus = 'incomplete' | 'trialing' | 'active' | 'past_due' | 'cancelled'
 
 export interface Doctor {
   id: string
