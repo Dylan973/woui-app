@@ -165,7 +165,8 @@ export function SignupPage() {
         <Input
           label="Numéro RPPS (11 chiffres)"
           value={form.rpps}
-          onChange={(e) => set('rpps', e.target.value.replace(/[^0-9 ]/g, '').slice(0, 14))}
+          onChange={(e) => set('rpps', e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+          maxLength={12}
           placeholder="10001234567"
           inputMode="numeric"
           required

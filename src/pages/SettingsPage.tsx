@@ -54,7 +54,7 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
-  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf } = useOutletContext<DashboardOutletContext>()
+  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
   const [rpps, setRpps] = useState(doctor.rpps ?? '')
   const [rppsBusy, setRppsBusy] = useState(false)
@@ -267,7 +267,8 @@ export function SettingsPage() {
                 <Input
                   label="Numéro RPPS"
                   value={rpps}
-                  onChange={(e) => setRpps(e.target.value.replace(/[^0-9 ]/g, '').slice(0, 14))}
+                  onChange={(e) => setRpps(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+                  maxLength={12}
                   placeholder="10001234567"
                   inputMode="numeric"
                 />
@@ -319,6 +320,21 @@ export function SettingsPage() {
 
       {tab === 'plan' && (
         <div style={{ animation: 'nb-rise 0.35s var(--ease-standard) both' }}>
+          {!canManageBilling && (
+            <div
+              className="mb-[22px] flex items-start gap-3 px-5 py-4 text-[0.9375rem]"
+              style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-secondary)' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" className="mt-[3px] flex-none">
+                <rect x="4" y="10" width="16" height="11" rx="2" />
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+              </svg>
+              <span>
+                L’abonnement du cabinet est géré par le titulaire du compte, {profileName(profiles[0])}. Ouvrez son profil pour changer d’offre ou
+                modifier le paiement.
+              </span>
+            </div>
+          )}
           <div
             className="mb-[22px] p-[28px_32px]"
             style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
@@ -366,7 +382,7 @@ export function SettingsPage() {
                 style={{ width: `${pct}%`, background: 'var(--action-accent)', animation: 'nb-grow 1s var(--ease-standard) 0.2s both' }}
               />
             </div>
-            {doctor.stripe_customer_id && (
+            {doctor.stripe_customer_id && canManageBilling && (
               <div className="mt-5">
                 <Button variant="ghost" onClick={manageBilling} disabled={billingBusy !== null}>
                   {billingBusy === 'portal' ? 'Ouverture…' : 'Factures, carte et résiliation'}
@@ -375,7 +391,7 @@ export function SettingsPage() {
             )}
           </div>
 
-          {!subscribed && (
+          {!subscribed && canManageBilling && (
             <div className="mb-5 flex items-center justify-center gap-1">
               {(['monthly', 'yearly'] as const).map((value) => (
                 <button
@@ -438,7 +454,15 @@ export function SettingsPage() {
                     ))}
                   </div>
                   <div className="mt-auto">
-                    {subscribed && isCurrent ? (
+                    {!canManageBilling ? (
+                      <button
+                        disabled
+                        className="w-full cursor-not-allowed rounded-[3px] py-[10px] text-[0.8125rem]"
+                        style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}
+                      >
+                        {isCurrent ? 'Plan actuel' : 'Réservé au titulaire'}
+                      </button>
+                    ) : subscribed && isCurrent ? (
                       <button
                         disabled
                         className="w-full cursor-not-allowed rounded-[3px] py-[10px] text-[0.8125rem]"
@@ -568,6 +592,10 @@ export function SettingsPage() {
           </p>
         </div>
       )}
+
+      <p className="mt-12 text-center text-[12px]" style={{ color: 'var(--text-muted)' }}>
+        Woui · version {__APP_VERSION__}
+      </p>
     </section>
   )
 }

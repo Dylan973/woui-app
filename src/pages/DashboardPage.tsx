@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { matchesPatient } from '../components/layout/PatientSearch'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -65,6 +66,9 @@ export function DashboardPage() {
     useOutletContext<DashboardOutletContext>()
   // Vue « Tout le cabinet » (titulaire, offre Clinique) : filtre optionnel par praticien.
   const [practitionerFilter, setPractitionerFilter] = useState<string>('all')
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const query = searchParams.get('q') ?? ''
   const consents = useMemo(
     () => (cabinetView && practitionerFilter !== 'all' ? scoped.filter((c) => profileOf(c.practitioner_id).id === practitionerFilter) : scoped),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,7 +157,10 @@ export function DashboardPage() {
     { label: 'Signés', value: signedCount, sub: signRate > 0 ? `${signRate} % de signature` : '—' },
   ]
 
-  const filtered = useMemo(() => (filter === 'all' ? consents : consents.filter((c) => c.status === filter)), [consents, filter])
+  const filtered = useMemo(
+    () => consents.filter((c) => (filter === 'all' || c.status === filter) && matchesPatient(c, query)),
+    [consents, filter, query]
+  )
   const rows = useMemo(
     () =>
       [...filtered].sort((a, b) => {
@@ -324,6 +331,24 @@ export function DashboardPage() {
         </button>
       </div>
 
+      {query && (
+        <div
+          className="mb-[18px] flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-[0.875rem]"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-secondary)' }}
+        >
+          <span>
+            {rows.length} résultat{rows.length > 1 ? 's' : ''} pour « <b style={{ color: 'var(--text-primary)' }}>{query}</b> »
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="cursor-pointer text-[0.8125rem]"
+            style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+          >
+            Effacer la recherche
+          </button>
+        </div>
+      )}
       {/* ── Liste des consentements ── */}
       {consentsLoading ? (
         <Spinner />
@@ -332,7 +357,7 @@ export function DashboardPage() {
           className="p-12 text-center"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-muted)' }}
         >
-          Aucun consentement trouvé. Cliquez sur « + Nouveau consentement » pour commencer.
+          {query ? 'Aucun patient ne correspond à cette recherche.' : 'Aucun consentement trouvé. Cliquez sur « + Nouveau consentement » pour commencer.'}
         </div>
       ) : (
         <div className="grid gap-[18px] md:grid-cols-2">

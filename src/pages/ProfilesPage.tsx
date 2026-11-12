@@ -31,6 +31,7 @@ export function ProfilesPage() {
     pinApi,
     refetchDoctor,
     showToast,
+    signOut,
   } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -263,6 +264,20 @@ export function ProfilesPage() {
             ← Retour au tableau de bord
           </button>
         )}
+      </div>
+
+      <div className="mt-8 flex justify-center">
+        <button
+          type="button"
+          onClick={signOut}
+          className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[0.8125rem]"
+          style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          Se déconnecter
+        </button>
       </div>
 
       {editing && (

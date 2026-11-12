@@ -4,7 +4,7 @@ import { Header } from './Header'
 import { ActivateTrial } from './ActivateTrial'
 import { SendModal } from '../dashboard/SendModal'
 import { Toast, type ToastType } from '../ui/Toast'
-import { Spinner } from '../ui/Spinner'
+import { Preloader } from '../ui/Preloader'
 import { ClinicWelcomeModal } from '../profiles/ClinicModals'
 import { PinOfferModal } from '../profiles/PinOfferModal'
 import { SignatureSetupModal } from '../profiles/SignatureSetupModal'
@@ -64,6 +64,10 @@ export interface DashboardOutletContext {
   setCabinetView: (on: boolean) => void
   /** Profil (titulaire ou praticien) au nom duquel un envoi a été fait. */
   profileOf: (practitionerId: string | null) => Profile
+  /** Déconnexion du compte (retour à l'écran de connexion). */
+  signOut: () => void
+  /** Profil du titulaire du compte : seul habilité à gérer l'abonnement quand le cabinet a plusieurs profils. */
+  canManageBilling: boolean
   /** Codes à 4 chiffres des profils (offres Pro et Clinique). */
   pinApi: ReturnType<typeof useProfilePins>
   /** Le code de profil est utilisable par ce compte. */
@@ -146,9 +150,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
-        <Spinner />
-      </div>
+      <Preloader />
     )
   }
 
@@ -194,9 +196,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
 
   if ((profilesEnabled && practitionersLoading) || pinApi.loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
-        <Spinner />
-      </div>
+      <Preloader />
     )
   }
   if (needsChoice && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
@@ -285,6 +285,8 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     cabinetView: showCabinet,
     setCabinetView,
     profileOf,
+    signOut: () => void onSignOut().then(() => navigate('/login')),
+    canManageBilling: activeProfile.isMain,
   }
 
   // Écran de sélection des profils : plein écran, sans l'en-tête du tableau de bord.

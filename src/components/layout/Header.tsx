@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { Consent, Doctor, Profile } from '../../types'
 import { WOUI_LOGO_URL } from '../../lib/constants'
 import { Button } from '../ui/Button'
+import { PatientSearch } from './PatientSearch'
 import { profileInitials, profileName } from '../../lib/profiles'
 
 interface HeaderProps {
@@ -119,17 +120,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        <div
-          className="hidden items-center gap-[9px] rounded-[3px] px-[14px] py-2 text-[13px] md:flex"
-          style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', minWidth: 220 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          Rechercher un patient
-          <span className="font-mono ml-auto text-[11px] opacity-70">⌘K</span>
-        </div>
+        <PatientSearch consents={consents} />
 
         <button
           onClick={toggle}

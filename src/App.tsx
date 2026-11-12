@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
-import { Spinner } from './components/ui/Spinner'
+import { Preloader } from './components/ui/Preloader'
 
 // Chaque écran est chargé à la demande : la page patient ne télécharge pas le tableau de bord.
 const AppLayout = lazy(() => import('./components/layout/AppLayout').then((m) => ({ default: m.AppLayout })))
@@ -17,7 +17,7 @@ export default function App() {
   const { user, doctor, loading, signOut, refetchDoctor } = useAuth()
 
   return (
-    <Suspense fallback={<FullScreenSpinner />}>
+    <Suspense fallback={<Preloader label="Chargement…" />}>
     <Routes>
       {/* Public — accès patient via token, aucune authentification */}
       <Route path="/sign/:token" element={<SignaturePage />} />
@@ -70,9 +70,5 @@ export default function App() {
 }
 
 function FullScreenSpinner() {
-  return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--surface-page)' }}>
-      <Spinner />
-    </div>
-  )
+  return <Preloader />
 }
