@@ -137,7 +137,7 @@ export async function exportYear(
       [`index-${year}.csv`]: [strToU8('﻿' + csv.join('\r\n')), { level: 6 }],
     } as Parameters<typeof zipSync>[0]
   )
-  const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }))
+  const url = URL.createObjectURL(new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' }))
   const link = document.createElement('a')
   link.href = url
   link.download = `woui-archives-${year}.zip`
