@@ -44,7 +44,7 @@ function render(page) {
   <meta property="og:image:alt" content="Woui, le consentement éclairé numérique pour les cabinets dentaires">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="/assets/icon.png" type="image/png">
-  <link rel="preload" href="/assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/poppins-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/site.css?v=${cssVersion}">
   <script>document.documentElement.classList.add('js')</script>
   <script src="/assets/lenis.min.js" defer></script>

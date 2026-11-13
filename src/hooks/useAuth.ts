@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Doctor } from '../types'
+import { clearActiveProfiles } from '../lib/profiles'
 
 interface UseAuthResult {
   user: User | null
@@ -53,6 +54,7 @@ export function useAuth(): UseAuthResult {
       } else {
         setUser(nextUser)
         if (!nextUser) {
+          clearActiveProfiles()
           loadedFor.current = null
           setDoctor(null)
         }
@@ -71,6 +73,7 @@ export function useAuth(): UseAuthResult {
   }, [])
 
   const signOut = useCallback(async () => {
+    clearActiveProfiles()
     await supabase.auth.signOut()
     loadedFor.current = null
     setDoctor(null)

@@ -1,13 +1,20 @@
-@font-face{font-family:Manrope;src:url("/assets/manrope-latin-ext.woff2") format("woff2");font-weight:400 800;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:Manrope;src:url("/assets/manrope-latin.woff2") format("woff2");font-weight:400 800;font-display:swap}
-:root{--ink:#191838;--muted:#56586d;--accent:#6352db;--accent-dark:#4c3bc2;--line:#e7e6f0;--lavender:#f2edff;--shadow:0 22px 55px #28235f16,0 3px 10px #28235f0a;--max:1120px}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-ext-400-normal.woff2") format("woff2");font-weight:400;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-400-normal.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-ext-500-normal.woff2") format("woff2");font-weight:500;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-500-normal.woff2") format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-ext-600-normal.woff2") format("woff2");font-weight:600;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-600-normal.woff2") format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-ext-700-normal.woff2") format("woff2");font-weight:700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Poppins;src:url("/assets/poppins-latin-700-normal.woff2") format("woff2");font-weight:700;font-display:swap}
+:root{--ink:#191838;--muted:#56586d;--accent:#6c5ce7;--accent-dark:#5a49d6;--line:#e7e6f0;--lavender:#f2edff;--shadow:0 22px 55px #28235f16,0 3px 10px #28235f0a;--max:1120px}
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:105px}
-body{margin:0;background:#fff;color:var(--ink);font:600 16px/1.65 Manrope,system-ui,sans-serif}
+body{margin:0;background:#fff;color:var(--ink);font:500 16px/1.65 Poppins,'Helvetica Neue',Arial,sans-serif}
 h1,h2,h3,h4,p{margin:0}
 h1,h2,h3,h4{line-height:1.08}
-h1,h2,h3,h4,b,strong,th{font-weight:inherit}
-h1,h2{letter-spacing:-.067em;text-wrap:balance}
+h1,h2,h3,h4,b,strong,th{font-weight:600}
+p{font-weight:400}
+h1,h2{letter-spacing:-.035em;text-wrap:balance}
 h3{letter-spacing:-.035em}
 p{color:var(--muted)}
 a{color:inherit;text-decoration:none}
@@ -193,7 +200,7 @@ img{display:block;max-width:100%;object-fit:contain}
 .price-card h3{font-size:25px;margin:13px 0 8px}
 .price-card p{min-height:3.3em;font-size:14px}
 .price{margin-top:16px;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
-.price strong{font-size:clamp(31px,4.3vw,51px);line-height:1.1;letter-spacing:-.072em}
+.price strong{font-size:clamp(31px,4.3vw,51px);line-height:1.1;letter-spacing:-.04em}
 .price span,.price-card>small{color:#5f5873;font-size:12px}
 .price-card>small{display:block;margin:4px 0 17px}
 .price-card .button{width:100%;justify-content:space-between}
@@ -232,7 +239,7 @@ img{display:block;max-width:100%;object-fit:contain}
 .page-section{padding-block:56px 70px}
 .contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .contact-card{border:1px solid var(--line);border-radius:19px;padding:28px;background:linear-gradient(145deg,#f8f4ff,#fff 67%)}
-.contact-card h2{font-size:29px;margin:13px 0 8px;letter-spacing:-.048em}
+.contact-card h2{font-size:29px;margin:13px 0 8px;letter-spacing:-.03em}
 .contact-card p{margin-bottom:17px}
 .contact-address{display:block;color:#51409a;font-size:13px;overflow-wrap:anywhere;margin-top:10px}
 .reading{max-width:725px;width:calc(100% - 48px);margin:auto}

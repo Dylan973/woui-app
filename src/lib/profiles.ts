@@ -66,6 +66,15 @@ export function writeActiveProfile(doctorId: string, profileId: string) {
   }
 }
 
+/** Déconnexion : on oublie le profil choisi, l'écran « Qui utilise Woui ? » revient à la connexion suivante. */
+export function clearActiveProfiles() {
+  try {
+    for (const k of Object.keys(sessionStorage)) if (k.startsWith('woui-profile-')) sessionStorage.removeItem(k)
+  } catch {
+    // stockage indisponible : rien à effacer
+  }
+}
+
 const welcomeKey = (doctorId: string) => `woui-clinic-welcome-${doctorId}`
 
 export function clinicWelcomeSeen(doctorId: string): boolean {
