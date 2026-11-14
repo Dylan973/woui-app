@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import type { Consent, Doctor, Profile } from '../../types'
+import type { Patient, Consent, Doctor, Profile } from '../../types'
 import { WOUI_LOGO_URL } from '../../lib/constants'
 import { Button } from '../ui/Button'
 import { PatientSearch } from './PatientSearch'
@@ -18,6 +18,8 @@ interface HeaderProps {
   canSend?: boolean
   onOpenSendModal: () => void
   onSignOut: () => void
+  /** Fiches patients, pour la recherche. */
+  patients: Patient[]
 }
 
 function useTheme() {
@@ -38,7 +40,7 @@ function useTheme() {
 const NAV_ITEM =
   'border-0 bg-transparent px-4 py-2 rounded-[3px] cursor-pointer text-[0.8125rem] tracking-[0.06em] whitespace-nowrap transition-colors'
 
-export function Header({ consents, activeProfile, profilesEnabled, multiProfile, canSend = true, onOpenSendModal, onSignOut }: HeaderProps) {
+export function Header({ consents, patients, activeProfile, profilesEnabled, multiProfile, canSend = true, onOpenSendModal, onSignOut }: HeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
@@ -49,14 +51,25 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
 
   const isDashboard = location.pathname === '/dashboard'
 
-  const signedRecently = useMemo(
-    () =>
-      consents
-        .filter((c) => c.status === 'signed' && c.signed_at)
-        .sort((a, b) => new Date(b.signed_at!).getTime() - new Date(a.signed_at!).getTime())
-        .slice(0, 4),
-    [consents]
-  )
+  // Signatures récentes : devis (le patient est prêt à planifier les soins) et consentements.
+  const signedRecently = useMemo(() => {
+    const events: { key: string; c: Consent; at: string; text: string; detail: string }[] = []
+    for (const c of consents) {
+      if (c.quote_signed_at)
+        events.push({
+          key: `${c.id}-q`,
+          c,
+          at: c.quote_signed_at,
+          text: `${c.patient} a signé son devis : prêt pour planifier les soins`,
+          detail: c.quote_name ?? 'Devis',
+        })
+      if (c.consent_signed_at)
+        events.push({ key: `${c.id}-c`, c, at: c.consent_signed_at, text: `${c.patient} a signé son consentement`, detail: c.procedure })
+      if (c.status === 'signed' && c.signed_at && !c.quote_signed_at && !c.consent_signed_at)
+        events.push({ key: c.id, c, at: c.signed_at, text: `${c.patient} a signé`, detail: c.procedure })
+    }
+    return events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 6)
+  }, [consents])
   // Alertes : rendez-vous dans 2 jours ou moins et rien n'est encore signé.
   const alerts = useMemo(
     () =>
@@ -66,7 +79,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
     [consents]
   )
   const lastSeenAt = useRef(Number(localStorage.getItem('woui_notifs_seen') || 0))
-  const unread = signedRecently.filter((c) => new Date(c.signed_at!).getTime() > lastSeenAt.current).length
+  const unread = signedRecently.filter((e) => new Date(e.at).getTime() > lastSeenAt.current).length
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -132,7 +145,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        <PatientSearch consents={consents} />
+        <PatientSearch consents={consents} patients={patients} />
 
         <button
           onClick={toggle}
@@ -227,15 +240,24 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
                   Aucune signature récente
                 </div>
               ) : (
-                signedRecently.map((c) => (
-                  <div key={c.id} className="px-3 py-[11px]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <div className="text-[13px]" style={{ color: 'var(--text-primary)' }}>
-                      {c.patient} a signé son consentement
+                signedRecently.map((e) => (
+                  <button
+                    key={e.key}
+                    type="button"
+                    onClick={() => {
+                      setNotifOpen(false)
+                      if (e.c.patient_id) navigate(`/patients/${e.c.patient_id}`)
+                    }}
+                    className="block w-full cursor-pointer px-3 py-[11px] text-left"
+                    style={{ background: 'none', border: 0, borderTop: '1px solid var(--border-subtle)' }}
+                  >
+                    <div className="text-[13px]" style={{ color: 'var(--text-primary)', fontWeight: e.key.endsWith('-q') ? 600 : 400 }}>
+                      {e.text}
                     </div>
                     <div className="font-mono mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                      {c.procedure} — {new Date(c.signed_at!).toLocaleDateString('fr-FR')}
+                      {e.detail} — {new Date(e.at).toLocaleDateString('fr-FR')}
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -244,7 +266,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
 
         {isDashboard && canSend && (
           <Button variant="primary" size="sm" onClick={onOpenSendModal}>
-            <span className="hidden sm:inline">+ Nouveau consentement</span>
+            <span className="hidden sm:inline">+ Nouvel envoi</span>
             <span className="sm:hidden">+ Nouveau</span>
           </Button>
         )}

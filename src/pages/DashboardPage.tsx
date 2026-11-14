@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { matchesPatient } from '../components/layout/PatientSearch'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -406,7 +406,7 @@ export function DashboardPage() {
           className="p-12 text-center"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-muted)' }}
         >
-          {query ? 'Aucun patient ne correspond à cette recherche.' : activeProfile.kind === 'cabinet' ? 'Aucun envoi pour le moment. Les envois de tous les praticiens du cabinet apparaîtront ici.' : 'Aucun consentement trouvé. Cliquez sur « + Nouveau consentement » pour commencer.'}
+          {query ? 'Aucun patient ne correspond à cette recherche.' : activeProfile.kind === 'cabinet' ? 'Aucun envoi pour le moment. Les envois de tous les praticiens du cabinet apparaîtront ici.' : 'Aucun envoi pour le moment. Cliquez sur « + Nouvel envoi » pour commencer.'}
         </div>
       ) : (
         <div className="grid gap-[18px] md:grid-cols-2">
@@ -442,7 +442,13 @@ export function DashboardPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-[17px] font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                        {c.patient}
+                        {c.patient_id ? (
+                          <Link to={`/patients/${c.patient_id}`} title="Ouvrir la fiche patient" style={{ color: 'inherit', textDecoration: 'none' }} className="hover:underline">
+                            {c.patient}
+                          </Link>
+                        ) : (
+                          c.patient
+                        )}
                       </div>
                       <div className="mt-[3px] text-[13px]" style={{ color: 'var(--text-muted)' }}>
                         {c.email}
@@ -462,7 +468,18 @@ export function DashboardPage() {
                         </div>
                       )}
                     </div>
-                    <Badge status={c.status} />
+                    {c.status !== 'signed' && c.kind === 'both' && (c.quote_signed_at || c.consent_signed_at) ? (
+                      <span
+                        className="inline-flex items-center gap-[6px] whitespace-nowrap rounded-full px-[10px] py-1 text-[11px] font-medium"
+                        style={{ background: 'rgba(63,199,154,.14)', color: 'var(--status-signed-text)' }}
+                        title={c.quote_signed_at ? 'Devis signé : le consentement reste à signer' : 'Consentement signé : le devis reste à signer'}
+                      >
+                        <span className="inline-block h-[5px] w-[5px] rounded-full" style={{ background: 'currentColor' }} />
+                        {c.quote_signed_at ? 'Devis signé' : 'Consentement signé'}
+                      </span>
+                    ) : (
+                      <Badge status={c.status} />
+                    )}
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-[26px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
@@ -606,7 +623,7 @@ export function DashboardPage() {
 
 function TutorialModal({ onClose }: { onClose: () => void }) {
   const steps = [
-    { n: 1, text: <>Cliquez sur <b>+ Nouveau consentement</b></> },
+    { n: 1, text: <>Cliquez sur <b>+ Nouvel envoi</b></> },
     { n: 2, text: "Renseignez l'e-mail du patient et l'acte prévu" },
     { n: 3, text: 'Suivez le statut de lecture et de signature ici-même' },
   ]

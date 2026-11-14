@@ -200,11 +200,23 @@ export interface Plan {
 }
 
 /** Shape of the form used by SendModal / useConsents.sendConsent */
+/** Fiche patient : un patient par compte (nom et prénom + date de naissance). */
+export interface Patient {
+  id: string
+  full_name: string
+  birth_date: string | null
+  email: string | null
+  phone: string | null
+  updated_at: string
+}
+
 export interface NewConsentForm {
   patient: string
   email: string
   /** Téléphone du patient. */
   phone: string
+  /** Date de naissance (AAAA-MM-JJ). */
+  birthDate: string
   procedure: string
   /** Contenu de l'envoi (choix multiples). */
   withConsent: boolean

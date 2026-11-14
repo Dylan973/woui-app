@@ -12,6 +12,7 @@ const SignaturePage = lazy(() => import('./pages/SignaturePage').then((m) => ({ 
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const SignupPage = lazy(() => import('./pages/SignupPage').then((m) => ({ default: m.SignupPage })))
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage').then((m) => ({ default: m.ProfilesPage })))
+const PatientPage = lazy(() => import('./pages/PatientPage').then((m) => ({ default: m.PatientPage })))
 
 export default function App() {
   const { user, doctor, loading, signOut, refetchDoctor } = useAuth()
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profiles" element={<ProfilesPage />} />
+        <Route path="/patients/:id" element={<PatientPage />} />
       </Route>
 
       <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />

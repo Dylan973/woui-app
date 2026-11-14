@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button } from '../ui/Button'
 import { documentUrl, saveProfileSignature } from '../../lib/documents'
-import { prepareSignature, SIGNATURE_ACCEPT, SignatureImportError } from '../../lib/signatureImport'
+import { loadSignature, SIGNATURE_ACCEPT, SignatureImportError } from '../../lib/signatureImport'
+import { SignatureEditor } from './SignatureEditor'
 import type { Profile } from '../../types'
 
 interface PractitionerSignatureProps {
@@ -17,9 +17,9 @@ interface PractitionerSignatureProps {
 export function SignatureHowTo() {
   return (
     <ol className="m-0 mb-5 flex max-w-[640px] flex-col gap-[6px] pl-5 text-[0.875rem] leading-[1.55]" style={{ color: 'var(--text-secondary)' }}>
-      <li>Sur une feuille A4 blanche, apposez votre tampon et signez juste à côté, au stylo noir ou bleu foncé.</li>
-      <li>Scannez la feuille (300 ppp, en PDF ou JPG) ou prenez-la en photo bien à plat, à la lumière du jour, sans ombre.</li>
-      <li>Importez le fichier : Woui retire le fond blanc et recadre automatiquement. Vérifiez l’aperçu puis enregistrez.</li>
+      <li>Sur une feuille A4 blanche, apposez votre tampon puis signez par-dessus, au stylo noir ou bleu foncé : tampon et signature ne forment qu’un seul bloc.</li>
+      <li>Scannez la feuille ou prenez-la en photo bien à plat, à la lumière du jour, sans ombre.</li>
+      <li>Importez le fichier : Woui retire le fond blanc. Pivotez, zoomez ou rognez si besoin, puis enregistrez.</li>
     </ol>
   )
 }
@@ -27,7 +27,7 @@ export function SignatureHowTo() {
 /** Signature et tampon du praticien, importés depuis un scan ou une photo. Ajoutés aux documents signés. */
 export function PractitionerSignature({ doctorId, profile, onSaved, compact = false }: PractitionerSignatureProps) {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null)
-  const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null)
+  const [source, setSource] = useState<HTMLCanvasElement | null>(null)
   const [busy, setBusy] = useState<'reading' | 'saving' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,16 +40,11 @@ export function PractitionerSignature({ doctorId, profile, onSaved, compact = fa
     }
   }, [profile.signature_path])
 
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview.url)
-  }, [preview])
-
   const read = async (file: File) => {
     setBusy('reading')
     setError(null)
     try {
-      const blob = await prepareSignature(file)
-      setPreview({ blob, url: URL.createObjectURL(blob) })
+      setSource(await loadSignature(file))
     } catch (e) {
       setError(e instanceof SignatureImportError ? e.message : 'Ce fichier ne peut pas être lu. Utilisez un PDF, un PNG ou un JPG.')
     }
@@ -65,7 +60,7 @@ export function PractitionerSignature({ doctorId, profile, onSaved, compact = fa
       setError(result.error)
       return
     }
-    setPreview(null)
+    setSource(null)
     await onSaved(message)
   }
 
@@ -116,27 +111,18 @@ export function PractitionerSignature({ doctorId, profile, onSaved, compact = fa
     <div>
       <SignatureHowTo />
 
-      {preview ? (
+      {source ? (
         <>
-          <div className="mb-2 text-[0.875rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Aperçu : votre signature et votre tampon tels qu’ils figureront sur les documents
+          <div className="mb-3 text-[0.875rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Ajustez votre signature et votre tampon tels qu’ils figureront sur les documents
           </div>
-          {frame(preview.url, 'Aperçu de la signature et du tampon importés')}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="primary" onClick={() => save(preview.blob, 'Signature et tampon enregistrés')} disabled={busy !== null}>
-              {busy === 'saving' ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-            {pickButton('Choisir un autre fichier')}
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              disabled={busy !== null}
-              className="cursor-pointer text-[13px]"
-              style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
-            >
-              Annuler
-            </button>
-          </div>
+          <SignatureEditor
+            source={source}
+            busy={busy === 'saving'}
+            onCancel={() => setSource(null)}
+            onConfirm={(image) => save(image, 'Signature et tampon enregistrés')}
+          />
+          <div className="mt-3">{pickButton('Choisir un autre fichier')}</div>
         </>
       ) : (
         <>

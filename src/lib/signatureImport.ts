@@ -89,10 +89,10 @@ async function imageToCanvas(file: File): Promise<HTMLCanvasElement> {
 }
 
 /**
- * Fond transparent + recadrage. Le papier (le plus clair) devient transparent ; l'encre garde sa couleur
+ * Fond transparent. Le papier (le plus clair) devient transparent ; l'encre garde sa couleur
  * (signature noire ou bleue, tampon bleu ou rouge).
  */
-function cleanAndCrop(canvas: HTMLCanvasElement): HTMLCanvasElement {
+function clean(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const context = canvas.getContext('2d')!
   const { width, height } = canvas
   const image = context.getImageData(0, 0, width, height)
@@ -117,21 +117,28 @@ function cleanAndCrop(canvas: HTMLCanvasElement): HTMLCanvasElement {
   }
   const opaqueBelow = Math.max(40, paper - 70) // encre franche
   const clearAbove = Math.max(opaqueBelow + 10, paper - 25) // papier
+  for (let p = 0; p < lum.length; p++) {
+    const l = lum[p]
+    px[p * 4 + 3] = l >= clearAbove ? 0 : l <= opaqueBelow ? 255 : Math.round((255 * (clearAbove - l)) / (clearAbove - opaqueBelow))
+  }
+  context.putImageData(image, 0, 0)
+  if (!contentBox(canvas)) {
+    throw new SignatureImportError('Aucune signature n’a été trouvée sur ce fichier. Vérifiez que la feuille n’est pas blanche et que le scan est net.')
+  }
+  return canvas
+}
 
+/** Zone utile (encre) en fractions de l'image, avec une marge de 3 % ; null si l'image est vide. */
+export function contentBox(canvas: HTMLCanvasElement): Crop | null {
+  const { width, height } = canvas
+  const px = canvas.getContext('2d')!.getImageData(0, 0, width, height).data
   let minX = width
   let minY = height
   let maxX = -1
   let maxY = -1
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const p = y * width + x
-      const l = lum[p]
-      let alpha: number
-      if (l >= clearAbove) alpha = 0
-      else if (l <= opaqueBelow) alpha = 255
-      else alpha = Math.round((255 * (clearAbove - l)) / (clearAbove - opaqueBelow))
-      px[p * 4 + 3] = alpha
-      if (alpha > 90) {
+      if (px[(y * width + x) * 4 + 3] > 90) {
         if (x < minX) minX = x
         if (x > maxX) maxX = x
         if (y < minY) minY = y
@@ -139,29 +146,41 @@ function cleanAndCrop(canvas: HTMLCanvasElement): HTMLCanvasElement {
       }
     }
   }
-  if (maxX < 0 || (maxX - minX) * (maxY - minY) < 400) {
-    throw new SignatureImportError('Aucune signature n’a été trouvée sur ce fichier. Vérifiez que la feuille n’est pas blanche et que le scan est net.')
-  }
-  context.putImageData(image, 0, 0)
-
-  // Marge de 3 % autour de la zone utile.
+  if (maxX < 0 || (maxX - minX) * (maxY - minY) < 400) return null
   const margin = Math.round(Math.max(maxX - minX, maxY - minY) * 0.03) + 4
   const x0 = Math.max(0, minX - margin)
   const y0 = Math.max(0, minY - margin)
-  const w = Math.min(width, maxX + margin) - x0
-  const h = Math.min(height, maxY + margin) - y0
-  const scale = Math.min(1, MAX_OUTPUT_WIDTH / w)
+  const x1 = Math.min(width, maxX + margin)
+  const y1 = Math.min(height, maxY + margin)
+  return { x: x0 / width, y: y0 / height, w: (x1 - x0) / width, h: (y1 - y0) / height }
+}
+
+/** Rectangle de recadrage, en fractions de l'image (0 à 1). */
+export interface Crop {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** Image tournée de `degrees` (sens horaire), sur un canevas assez grand pour la contenir. */
+export function rotateCanvas(source: HTMLCanvasElement, degrees: number): HTMLCanvasElement {
+  const rad = (degrees * Math.PI) / 180
+  const cos = Math.abs(Math.cos(rad))
+  const sin = Math.abs(Math.sin(rad))
   const out = document.createElement('canvas')
-  out.width = Math.max(1, Math.round(w * scale))
-  out.height = Math.max(1, Math.round(h * scale))
-  const outContext = out.getContext('2d')!
-  outContext.imageSmoothingQuality = 'high'
-  outContext.drawImage(canvas, x0, y0, w, h, 0, 0, out.width, out.height)
+  out.width = Math.max(1, Math.round(source.width * cos + source.height * sin))
+  out.height = Math.max(1, Math.round(source.width * sin + source.height * cos))
+  const context = out.getContext('2d')!
+  context.imageSmoothingQuality = 'high'
+  context.translate(out.width / 2, out.height / 2)
+  context.rotate(rad)
+  context.drawImage(source, -source.width / 2, -source.height / 2)
   return out
 }
 
-/** Fichier (scan PDF, photo, image) → PNG transparent et recadré de la signature et du tampon. */
-export async function prepareSignature(file: File): Promise<Blob> {
+/** Fichier (scan PDF, photo, image) → image au fond transparent, non recadrée, pour l'éditeur. */
+export async function loadSignature(file: File): Promise<HTMLCanvasElement> {
   if (file.size > MAX_FILE) throw new SignatureImportError('Le fichier dépasse 15 Mo. Scannez en 300 ppp plutôt qu’en 600, ou envoyez un JPG.')
   let canvas: HTMLCanvasElement
   try {
@@ -172,9 +191,24 @@ export async function prepareSignature(file: File): Promise<Blob> {
       isPdf(file) ? 'Ce PDF ne peut pas être lu. Réenregistrez le scan en PDF ou en JPG puis réessayez.' : 'Ce fichier ne peut pas être lu. Utilisez un PDF, un PNG ou un JPG.'
     )
   }
-  const cropped = cleanAndCrop(canvas)
+  return clean(canvas)
+}
+
+/** Recadre l'image (déjà tournée) et l'exporte en PNG, 1 200 px de large au plus. */
+export async function exportSignature(rotated: HTMLCanvasElement, crop: Crop): Promise<Blob> {
+  const x = Math.round(crop.x * rotated.width)
+  const y = Math.round(crop.y * rotated.height)
+  const w = Math.max(1, Math.round(crop.w * rotated.width))
+  const h = Math.max(1, Math.round(crop.h * rotated.height))
+  const scale = Math.min(1, MAX_OUTPUT_WIDTH / w)
+  const out = document.createElement('canvas')
+  out.width = Math.max(1, Math.round(w * scale))
+  out.height = Math.max(1, Math.round(h * scale))
+  const context = out.getContext('2d')!
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(rotated, x, y, w, h, 0, 0, out.width, out.height)
   return await new Promise<Blob>((resolve, reject) =>
-    cropped.toBlob((blob) => (blob ? resolve(blob) : reject(new SignatureImportError('La signature n’a pas pu être préparée.'))), 'image/png')
+    out.toBlob((blob) => (blob ? resolve(blob) : reject(new SignatureImportError('La signature n’a pas pu être préparée.'))), 'image/png')
   )
 }
 

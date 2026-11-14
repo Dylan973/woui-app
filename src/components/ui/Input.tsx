@@ -4,14 +4,21 @@ import type { InputHTMLAttributes } from 'react'
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
   hint?: string
+  /** Champ obligatoire : astérisque visible après le libellé. */
+  mandatory?: boolean
 }
 
-export function Input({ label, hint, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, hint, mandatory = false, onFocus, onBlur, ...props }: InputProps) {
   const [focus, setFocus] = useState(false)
   return (
     <label className="mb-5 flex flex-col gap-2">
       <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
         {label}
+        {mandatory && (
+          <span aria-hidden="true" className="ml-1 text-[12px] font-bold" style={{ color: 'var(--danger-text)' }}>
+            *
+          </span>
+        )}
       </span>
       <input
         {...props}

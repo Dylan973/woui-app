@@ -40,7 +40,7 @@ export function CabinetInfoCard({
   return (
     <div className="p-[clamp(1.5rem,4vw,36px)]" style={{ ...card, animation: 'nb-rise 0.35s var(--ease-standard) both' }}>
       <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
-        Informations du cabinet
+        Informations de l’établissement
       </h2>
       <p className="mb-[26px] mt-[6px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
         L’abonnement et les factures sont au nom du cabinet. Le téléphone est celui affiché aux patients pour tous les praticiens.
@@ -70,7 +70,7 @@ export function CabinetInfoCard({
       <Button variant="primary" onClick={save} disabled={saving}>
         {saving ? 'Enregistrement…' : 'Sauvegarder'}
       </Button>
-      <CabinetIdentity doctor={doctor} refetchDoctor={refetchDoctor} showToast={showToast} onSeePlans={onSeePlans} />
+      <CabinetIdentity doctor={doctor} refetchDoctor={refetchDoctor} showToast={showToast} onSeePlans={onSeePlans} establishment />
     </div>
   )
 }

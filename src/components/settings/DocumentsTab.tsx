@@ -14,12 +14,14 @@ interface DocumentsTabProps {
   showToast: (msg: string, type?: ToastType) => void
   /** Gestion du cabinet : pas de signature (chaque praticien signe depuis son profil). */
   withSignature?: boolean
+  /** Modèles PDF (consentements, conseils post-opératoires) : profils praticiens uniquement. */
+  withTemplates?: boolean
 }
 
 const CARD = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
 
 /** Paramètres > Documents PDF : signature et tampon du praticien, modèles du cabinet (consentements, conseils post-opératoires). */
-export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast, withSignature = true }: DocumentsTabProps) {
+export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast, withSignature = true, withTemplates = true }: DocumentsTabProps) {
   const { templates, loading, saveTemplate, removeTemplate } = useConsentTemplates(doctorId)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -54,7 +56,7 @@ export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showTo
       </div>
       )}
 
-      {(['consent', 'postop'] as const).map((category) => (
+      {withTemplates && (['consent', 'postop'] as const).map((category) => (
         <div key={category} className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
           <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
             {category === 'consent' ? 'Vos formulaires de consentement' : 'Vos conseils post-opératoires'}

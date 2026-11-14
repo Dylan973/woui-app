@@ -117,6 +117,7 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
             patient: form.patient.trim(),
             email: form.email.trim(),
             phone: form.phone.trim() || null,
+            birth_date: form.birthDate || null,
             procedure: kind === 'quote' ? 'Devis' : form.procedure,
             kind,
             with_postop: withPostop,

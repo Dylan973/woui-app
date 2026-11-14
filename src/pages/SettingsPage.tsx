@@ -15,6 +15,7 @@ import { CabinetIdentity } from '../components/settings/CabinetIdentity'
 import { ArchiveCard } from '../components/settings/ArchiveCard'
 import { CabinetInfoCard, PractitionerInfoCard } from '../components/settings/CabinetProfileCards'
 import { TeamSeats } from '../components/settings/TeamSeats'
+import { TeamList } from '../components/settings/TeamList'
 
 type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'security'
 
@@ -317,6 +318,12 @@ export function SettingsPage() {
               ? `${profiles.length} profil${profiles.length > 1 ? 's' : ''} sur ${practitionerPlaces + 1} possibles avec l’offre Pro. Chaque praticien choisit le sien à l'ouverture de Woui et retrouve ses propres consentements.`
               : 'L’offre Starter comprend un profil praticien. Avec l’offre Pro (2 profils) ou Clinique (4 praticiens), chaque praticien a son profil : son nom sur les emails et les documents signés, et ses propres envois.'}
           </p>
+          {profilesEnabled && (
+            <TeamList
+              profiles={isCabinet ? profiles.filter((p) => !p.isMain) : profiles}
+              total={isCabinet ? practitionerPlaces : practitionerPlaces + 1}
+            />
+          )}
           <div className="flex flex-wrap gap-3">
             <Button variant="primary" onClick={() => navigate(profilesEnabled ? '/profiles?gerer=1' : '/profiles')}>
               {profilesEnabled ? 'Gérer les profils' : 'Voir les profils'}
@@ -516,6 +523,7 @@ export function SettingsPage() {
             onSignatureSaved={onSignatureSaved}
             showToast={showToast}
             withSignature={!cabinetSpace}
+            withTemplates={!(isCabinet && activeProfile.isMain)}
           />
           <ArchiveCard
             doctorId={doctor.id}

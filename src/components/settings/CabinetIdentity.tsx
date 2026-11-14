@@ -6,6 +6,8 @@ import { documentUrl, imageToPng } from '../../lib/documents'
 import type { Doctor } from '../../types'
 
 interface CabinetIdentityProps {
+  /** Gestion du cabinet : le champ s'intitule « Établissement ». */
+  establishment?: boolean
   doctor: Doctor
   refetchDoctor: () => Promise<void>
   showToast: (msg: string, type?: 'success' | 'warning') => void
@@ -16,7 +18,7 @@ interface CabinetIdentityProps {
  * Identité du cabinet affichée au patient (page de signature, e-mail, PDF signé).
  * Nom : toutes les offres. Logo : offre Clinique.
  */
-export function CabinetIdentity({ doctor, refetchDoctor, showToast, onSeePlans }: CabinetIdentityProps) {
+export function CabinetIdentity({ doctor, refetchDoctor, showToast, onSeePlans, establishment = false }: CabinetIdentityProps) {
   const [name, setName] = useState(doctor.cabinet_name ?? '')
   const [saving, setSaving] = useState(false)
   const [logoBusy, setLogoBusy] = useState(false)
@@ -82,14 +84,14 @@ export function CabinetIdentity({ doctor, refetchDoctor, showToast, onSeePlans }
   return (
     <div className="mt-9 max-w-[700px] pt-7" style={{ borderTop: '1px solid var(--border-subtle)' }}>
       <h3 className="font-display text-[18px]" style={{ color: 'var(--text-primary)' }}>
-        Cabinet
+        {establishment ? 'Établissement' : 'Cabinet'}
       </h3>
       <p className="mb-4 mt-[6px] text-[0.875rem]" style={{ color: 'var(--text-secondary)' }}>
         Le nom de votre cabinet apparaît sur la page du patient, dans l’e-mail et sur les documents signés.
       </p>
       <div className="flex flex-wrap items-end gap-4">
         <div className="w-full max-w-[380px] [&>label]:mb-0">
-          <Input label="Nom du cabinet" value={name} onChange={(e) => setName(e.target.value)} placeholder="Cabinet dentaire des Lilas" maxLength={120} />
+          <Input label={establishment ? 'Établissement' : 'Nom du cabinet'} value={name} onChange={(e) => setName(e.target.value)} placeholder="Cabinet dentaire des Lilas" maxLength={120} />
         </div>
         <Button variant="ghost" onClick={saveName} disabled={saving || name.trim() === (doctor.cabinet_name ?? '')}>
           {saving ? 'Enregistrement…' : 'Enregistrer'}

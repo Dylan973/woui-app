@@ -162,7 +162,7 @@ function CabinetStep({ doctor, refetchDoctor }: { doctor: Doctor; refetchDoctor:
     <Card>
       <h2 className="font-display text-[22px]">Votre cabinet</h2>
       <p className="mb-6 mt-2 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-        Avec l’offre Clinique, le compte Woui est celui du cabinet. Chaque dentiste associé y a ensuite son profil.
+        Avec l’offre Clinique, le compte Woui est celui de l’établissement. Chaque praticien du cabinet y a ensuite son profil.
       </p>
       <Input
         label="SIRET du cabinet"
@@ -176,7 +176,7 @@ function CabinetStep({ doctor, refetchDoctor }: { doctor: Doctor; refetchDoctor:
         placeholder="14 chiffres"
       />
       <SiretNote check={check} length={siret.length} />
-      <Input label="Nom du cabinet" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="Cabinet dentaire des Lilas" />
+      <Input label="Établissement" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="Cabinet dentaire des Lilas" />
       <Input label="Adresse" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={240} placeholder="12 rue des Lilas, 31000 Toulouse" />
       <Input label="Téléphone du cabinet" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05 61 00 00 00" />
       {doctor.last_name && (
@@ -275,7 +275,7 @@ function TeamStep({
           </span>
         </div>
         <p className="mb-5 mt-2 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-          Chaque dentiste associé a son profil : son nom et sa signature figurent sur ses envois. Le téléphone affiché aux patients est celui du
+          Chaque praticien a son profil : son nom, sa signature et son tampon figurent sur ses envois. Le téléphone affiché aux patients est celui du
           cabinet.
         </p>
 

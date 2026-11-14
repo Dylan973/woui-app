@@ -25,14 +25,23 @@ export const practitionerPlaces = (doctor: Doctor) =>
 export const PLAN_PROFILES: Record<Doctor['plan'], number> = { starter: 1, pro: 2, clinic: INCLUDED_PRACTITIONERS }
 
 /** Fonctions proposées pour un praticien (saisie libre possible). */
+/** Fonctions proposées (spécialités et orientations de la chirurgie dentaire) ; saisie libre possible. */
 export const PRACTITIONER_FUNCTIONS = [
   'Chirurgien-dentiste',
-  'Orthodontiste',
-  'Chirurgien oral',
+  'Chirurgien-dentiste omnipraticien',
+  'Spécialiste en orthopédie dento-faciale (orthodontiste)',
+  'Spécialiste en chirurgie orale',
+  'Spécialiste en médecine bucco-dentaire',
   'Parodontiste',
   'Implantologue',
-  'Pédodontiste',
   'Endodontiste',
+  'Pédodontiste (odontologie pédiatrique)',
+  'Prothésiste (prothèse dentaire)',
+  'Dentisterie esthétique',
+  'Occlusodontiste',
+  'Gérodontologie',
+  'Chirurgien maxillo-facial',
+  'Stomatologue',
 ]
 
 /** Le code à 4 chiffres par profil est proposé aux offres Pro et Clinique en cours. */

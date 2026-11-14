@@ -4,8 +4,9 @@ import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { PLANS, PROCEDURES } from '../../lib/constants'
+import { formatBirthDate, matchesName } from '../../hooks/usePatients'
 import { useConsentTemplates } from '../../hooks/useConsentTemplates'
-import type { NewConsentForm, PlanId, Profile } from '../../types'
+import type { NewConsentForm, Patient, PlanId, Profile } from '../../types'
 import { profileName } from '../../lib/profiles'
 
 type Part = 'withConsent' | 'withQuote' | 'withPostop'
@@ -19,6 +20,105 @@ const PARTS: { id: Part; label: string; hint: string }[] = [
 /** Téléphone : chiffres, espaces, points, tirets, + en tête ; 10 chiffres au moins. */
 export function phoneValid(phone: string): boolean {
   return /^\+?[0-9 .()-]{6,24}$/.test(phone.trim()) && phone.replace(/[^0-9]/g, '').length >= 10
+}
+
+/** Date de naissance : entre 1900 et aujourd'hui. */
+function birthDateValid(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  return value > '1900-01-01' && value <= todayLocal()
+}
+
+/** Nom et prénom du patient, avec les patients déjà connus proposés pendant la saisie. */
+function PatientNameField({
+  value,
+  patients,
+  onChange,
+  onPick,
+}: {
+  value: string
+  patients: Patient[]
+  onChange: (v: string) => void
+  onPick: (p: Patient) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const matches = value.trim().length >= 2 ? patients.filter((p) => matchesName(p.full_name, value)).slice(0, 6) : []
+  const exact = matches.length === 1 && matches[0].full_name.toLowerCase() === value.trim().toLowerCase()
+  const show = open && matches.length > 0 && !exact
+  return (
+    <div className="relative">
+      <Input
+        label="Nom et prénom du patient"
+        mandatory
+        value={value}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={show}
+        aria-autocomplete="list"
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOpen(true)
+          setActive(0)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (!show) return
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setActive((i) => Math.min(i + 1, matches.length - 1))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setActive((i) => Math.max(i - 1, 0))
+          } else if (e.key === 'Enter') {
+            e.preventDefault()
+            onPick(matches[active])
+            setOpen(false)
+          } else if (e.key === 'Escape') setOpen(false)
+        }}
+        placeholder="Marie Dupont"
+      />
+      {show && (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-[76px] z-10 p-1"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+        >
+          <div className="font-mono px-3 pb-1 pt-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
+            Patients déjà connus
+          </div>
+          {matches.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              role="option"
+              aria-selected={i === active}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => {
+                onPick(p)
+                setOpen(false)
+              }}
+              className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[3px] px-3 py-[9px] text-left"
+              style={{ background: i === active ? 'var(--surface-card-alt)' : 'transparent', border: 0 }}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[13.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {p.full_name}
+                </span>
+                <span className="block truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  {p.email ?? '—'}
+                </span>
+              </span>
+              <span className="font-mono flex-none text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
+                {p.birth_date ? `né(e) le ${formatBirthDate(p.birth_date)}` : 'date de naissance à compléter'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function todayLocal(): string {
@@ -67,14 +167,19 @@ interface SendModalProps {
   doctorId: string
   /** Offre Clinique, profil du titulaire : choix du praticien au nom duquel envoyer. */
   senders?: Profile[] | null
+  /** Fiches patients connues : proposées pendant la saisie du nom. */
+  patients?: Patient[]
+  /** Patient choisi à l'avance (depuis sa fiche). */
+  initialPatient?: Patient | null
 }
 
-export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId, senders }: SendModalProps) {
+export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId, senders, patients = [], initialPatient = null }: SendModalProps) {
   const navigate = useNavigate()
   const [form, setForm] = useState<NewConsentForm>({
-    patient: '',
-    email: '',
-    phone: '',
+    patient: initialPatient?.full_name ?? '',
+    email: initialPatient?.email ?? '',
+    phone: initialPatient?.phone ?? '',
+    birthDate: initialPatient?.birth_date ?? '',
     procedure: PROCEDURES[0],
     withConsent: true,
     withQuote: false,
@@ -97,8 +202,9 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
   const appointmentPast = form.appointmentAt !== '' && new Date(form.appointmentAt).getTime() < Date.now()
   const partsChosen = withConsent || withQuote || withPostop
   const valid =
-    form.patient.trim() !== '' &&
-    form.email.trim() !== '' &&
+    form.patient.trim().length >= 3 &&
+    birthDateValid(form.birthDate) &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) &&
     phoneValid(form.phone) &&
     partsChosen &&
     !appointmentPast &&
@@ -239,9 +345,27 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
               </label>
             )}
             <div className="grid gap-x-5 sm:grid-cols-2">
-            <Input label="Nom du patient" value={form.patient} onChange={(e) => set('patient', e.target.value)} placeholder="Marie Dupont" />
+            <PatientNameField
+              value={form.patient}
+              patients={patients}
+              onChange={(v) => set('patient', v)}
+              onPick={(p) =>
+                setForm((f) => ({ ...f, patient: p.full_name, email: p.email ?? f.email, phone: p.phone ?? f.phone, birthDate: p.birth_date ?? f.birthDate }))
+              }
+            />
+            <Input
+              label="Date de naissance"
+              mandatory
+              type="date"
+              max={todayLocal()}
+              min="1900-01-02"
+              value={form.birthDate}
+              onChange={(e) => set('birthDate', e.target.value)}
+              hint={form.birthDate !== '' && !birthDateValid(form.birthDate) ? 'Date de naissance invalide.' : undefined}
+            />
             <Input
               label="Email"
+              mandatory
               type="email"
               value={form.email}
               onChange={(e) => set('email', e.target.value)}
@@ -249,6 +373,7 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
             />
             <Input
               label="Téléphone du patient"
+              mandatory
               type="tel"
               inputMode="tel"
               autoComplete="off"

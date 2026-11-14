@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Header } from './Header'
 import { ActivateTrial } from './ActivateTrial'
 import { SendModal } from '../dashboard/SendModal'
+import { usePatients } from '../../hooks/usePatients'
 import { Toast, type ToastType } from '../ui/Toast'
 import { Preloader } from '../ui/Preloader'
 import { ClinicWelcomeModal } from '../profiles/ClinicModals'
@@ -37,7 +38,7 @@ import {
   writeActiveProfile,
   writeCabinetSession,
 } from '../../lib/profiles'
-import type { Doctor, Profile } from '../../types'
+import type { Patient, Doctor, Profile } from '../../types'
 
 export interface DashboardOutletContext {
   doctor: Doctor
@@ -45,7 +46,10 @@ export interface DashboardOutletContext {
   consentsLoading: boolean
   refetchConsents: () => Promise<void>
   resendConsent: ReturnType<typeof useConsents>['resendConsent']
-  openSendModal: () => void
+  /** Ouvre « Nouvel envoi », éventuellement pour un patient déjà connu. */
+  openSendModal: (patient?: Patient | null) => void
+  /** Fiches patients du compte. */
+  patients: Patient[]
   showToast: (msg: string, type?: ToastType) => void
   refetchDoctor: () => Promise<void>
   /** Titulaire du compte + profils praticiens actifs (offre Clinique). */
@@ -92,10 +96,12 @@ interface AppLayoutProps {
 export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: AppLayoutProps) {
   const navigate = useNavigate()
   const [showSend, setShowSend] = useState(false)
+  const [sendPatient, setSendPatient] = useState<Patient | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
 
   const location = useLocation()
   const { consents: allConsents, loading: consentsLoading, sendConsent, resendConsent, refetch } = useConsents(doctor?.id ?? null)
+  const { patients, refetch: refetchPatients } = usePatients(doctor?.id ?? null)
   const {
     practitioners,
     loading: practitionersLoading,
@@ -166,6 +172,16 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   useEffect(() => {
     setActiveId(doctorId ? readActiveProfile(doctorId) : null)
   }, [doctorId])
+
+  // Devis signé en direct : l'assistante est prévenue que le patient est prêt pour les soins.
+  const quoteSeen = useRef<Map<string, string | null> | null>(null)
+  useEffect(() => {
+    const previous = quoteSeen.current
+    quoteSeen.current = new Map(allConsents.map((c) => [c.id, c.quote_signed_at ?? null]))
+    if (!previous) return
+    const fresh = allConsents.find((c) => c.quote_signed_at && previous.has(c.id) && !previous.get(c.id))
+    if (fresh) setToast({ msg: `${fresh.patient} a signé son devis : prêt pour planifier les soins`, type: 'success' })
+  }, [allConsents])
 
   if (authLoading) {
     return (
@@ -325,7 +341,11 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     consentsLoading,
     refetchConsents: refetch,
     resendConsent,
-    openSendModal: () => setShowSend(true),
+    openSendModal: (patient?: Patient | null) => {
+      setSendPatient(patient ?? null)
+      setShowSend(true)
+    },
+    patients,
     showToast,
     refetchDoctor,
     profiles,
@@ -381,7 +401,11 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
         profilesEnabled={profilesEnabled}
         multiProfile={multiProfile}
         canSend={activeProfile.kind !== 'cabinet'}
-        onOpenSendModal={() => setShowSend(true)} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
+        patients={patients}
+        onOpenSendModal={() => {
+          setSendPatient(null)
+          setShowSend(true)
+        }} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
 
       <main style={{ padding: '40px 34px 90px', maxWidth: 1520, margin: '0 auto' }} className="!px-[clamp(1rem,4vw,34px)]">
         <Outlet context={outletContext} />
@@ -393,13 +417,18 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           onSend={async (form, senderId) => {
             const sender = senderId ?? activeProfile.id
             const result = await sendConsent(form, sender === MAIN_PROFILE ? null : sender)
-            if (!result.error) showToast(`Lien envoyé à ${form.patient}`)
+            if (!result.error) {
+              showToast(`Lien envoyé à ${form.patient}`)
+              void refetchPatients()
+            }
             return result
           }}
           planId={doctor.plan}
           quotesEnabled={canSendQuotes(doctor)}
           doctorId={doctor.id}
           senders={cabinetViewAvailable && !isCabinet ? profiles : null}
+          patients={patients}
+          initialPatient={sendPatient}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
         />
