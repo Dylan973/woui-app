@@ -60,6 +60,8 @@ export function SettingsPage() {
   const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling, isCabinet, practitionersApi, practitionerPlaces } =
     useOutletContext<DashboardOutletContext>()
   const cabinetSpace = isCabinet && activeProfile.isMain
+  // Équipe : visible et modifiable uniquement par l'administrateur (Gestion du cabinet, ou titulaire en offre Pro).
+  const teamVisible = isCabinet ? cabinetSpace : activeProfile.isMain
   const navigate = useNavigate()
   const [rpps, setRpps] = useState(doctor.rpps ?? '')
   const [rppsBusy, setRppsBusy] = useState(false)
@@ -189,7 +191,7 @@ export function SettingsPage() {
       </h1>
 
       <div className="mb-9 flex flex-wrap gap-1">
-        {TABS.map((t) => {
+        {TABS.filter((t) => t.id !== 'team' || teamVisible).map((t) => {
           const active = tab === t.id
           return (
             <button
@@ -293,7 +295,7 @@ export function SettingsPage() {
         </div>
       )}
 
-      {tab === 'team' && (
+      {tab === 'team' && teamVisible && (
         <div
           className="p-[clamp(1.5rem,4vw,36px)]"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
@@ -395,7 +397,7 @@ export function SettingsPage() {
                   {usedThisMonth} <span className="text-[17px]" style={{ color: 'var(--text-muted)' }}>/ {PLAN_LIMITS_LABEL(limit)}</span>
                 </div>
                 <div className="mt-1 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                  consentements ce mois
+                  envois ce mois
                 </div>
               </div>
             </div>

@@ -3,7 +3,25 @@ import type { Doctor, Practitioner, Profile } from '../types'
 /** Identifiant du profil du titulaire du compte (les autres profils ont l'id de leur ligne). */
 export const MAIN_PROFILE = 'main'
 
-export const PROFILE_COLORS = ['#6c5ce7', '#0ea5e9', '#3fc79a', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#64748b']
+export const PROFILE_COLORS = [
+  '#6c5ce7',
+  '#8b5cf6',
+  '#d946ef',
+  '#ec4899',
+  '#e11d48',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#84cc16',
+  '#22c55e',
+  '#3fc79a',
+  '#14b8a6',
+  '#0891b2',
+  '#0ea5e9',
+  '#2563eb',
+  '#64748b',
+  '#171734',
+]
 
 /**
  * Profils praticiens : Starter 1 (le titulaire seul), Pro 2 (le titulaire + 1 praticien),
@@ -28,18 +46,18 @@ export const PLAN_PROFILES: Record<Doctor['plan'], number> = { starter: 1, pro: 
 /** Fonctions proposées (spécialités et orientations de la chirurgie dentaire) ; saisie libre possible. */
 export const PRACTITIONER_FUNCTIONS = [
   'Chirurgien-dentiste',
-  'Chirurgien-dentiste omnipraticien',
-  'Spécialiste en orthopédie dento-faciale (orthodontiste)',
-  'Spécialiste en chirurgie orale',
-  'Spécialiste en médecine bucco-dentaire',
+  'Omnipraticien',
+  'Orthodontiste',
+  'Chirurgien oral',
+  'Médecine bucco-dentaire',
   'Parodontiste',
   'Implantologue',
   'Endodontiste',
-  'Pédodontiste (odontologie pédiatrique)',
-  'Prothésiste (prothèse dentaire)',
-  'Dentisterie esthétique',
+  'Pédodontiste',
+  'Prothésiste',
+  'Esthétique dentaire',
   'Occlusodontiste',
-  'Gérodontologie',
+  'Gérodontologue',
   'Chirurgien maxillo-facial',
   'Stomatologue',
 ]

@@ -96,7 +96,7 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive, withRpps
         <Input label="Nom" value={form.last_name} onChange={(e) => set('last_name', e.target.value)} placeholder="Morel" />
       </div>
       <Input
-        label={withRpps ? 'Fonction' : 'Spécialité'}
+        label="Spécialité"
         value={form.specialty}
         onChange={(e) => set('specialty', e.target.value)}
         placeholder="Chirurgien-dentiste"
@@ -151,6 +151,29 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive, withRpps
                 }}
               />
             ))}
+            {/* Couleur personnalisée : nuancier libre */}
+            <label
+              title="Couleur personnalisée"
+              className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px]"
+              style={{
+                background: PROFILE_COLORS.includes(form.color)
+                  ? 'conic-gradient(from 180deg, #ef4444, #f59e0b, #84cc16, #22c55e, #0ea5e9, #6c5ce7, #d946ef, #ef4444)'
+                  : form.color,
+                outline: PROFILE_COLORS.includes(form.color) ? 'none' : '2px solid var(--text-primary)',
+                outlineOffset: 2,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.45))' }}>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              <input
+                type="color"
+                value={form.color}
+                onChange={(e) => set('color', e.target.value)}
+                aria-label="Couleur personnalisée"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
           </div>
         </div>
       )}

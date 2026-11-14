@@ -10,7 +10,7 @@ export const PLANS: Plan[] = [
     accent: '#94a3b8',
     limits: { consents: 10, templates: 1 },
     features: [
-      '10 consentements / mois',
+      '10 envois / mois',
       '1 profil praticien',
       'Signature électronique',
       'Vos formulaires PDF par acte',
@@ -27,9 +27,9 @@ export const PLANS: Plan[] = [
     color: '#0ea5e9',
     accent: '#38bdf8',
     popular: true,
-    limits: { consents: 100, templates: 5 },
+    limits: { consents: 200, templates: 5 },
     features: [
-      '100 consentements / mois',
+      '200 envois / mois',
       '2 profils praticiens',
       'Devis à signer en ligne',
       'Vos formulaires PDF par acte',
@@ -48,7 +48,7 @@ export const PLANS: Plan[] = [
     accent: '#c084fc',
     limits: { consents: 999999, templates: 999 },
     features: [
-      'Consentements illimités',
+      'Envois illimités',
       'Devis à signer en ligne',
       '4 profils praticiens compris',
       'Praticien en plus : 40 € / mois',

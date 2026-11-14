@@ -12,8 +12,8 @@ import { profileName } from '../../lib/profiles'
 type Part = 'withConsent' | 'withQuote' | 'withPostop'
 
 const PARTS: { id: Part; label: string; hint: string }[] = [
-  { id: 'withConsent', label: 'Consentement', hint: 'vidéo + signature' },
   { id: 'withQuote', label: 'Devis', hint: 'lecture + signature' },
+  { id: 'withConsent', label: 'Consentement', hint: 'vidéo + signature' },
   { id: 'withPostop', label: 'Conseils post-opératoires', hint: 'PDF à lire' },
 ]
 
@@ -258,7 +258,7 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
             Limite atteinte
           </div>
           <div className="mb-6 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-            {used}/{limit} consentements utilisés sur le plan {plan.name}.
+            {used}/{limit} envois utilisés sur le plan {plan.name}.
           </div>
           <Button
             variant="primary"
@@ -452,7 +452,7 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
 
           <div className="mt-3 flex items-center gap-[14px] pt-[22px]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <span className="font-mono mr-auto text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              {used} / {limit >= 999999 ? '∞' : limit} consentements ce mois
+              {used} / {limit >= 999999 ? '∞' : limit} envois ce mois
             </span>
             <Button variant="ghost" size="sm" onClick={onClose}>
               Annuler

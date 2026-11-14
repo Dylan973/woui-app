@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { Patient, Consent, Doctor, Profile } from '../../types'
-import { WOUI_LOGO_URL } from '../../lib/constants'
 import { Button } from '../ui/Button'
 import { PatientSearch } from './PatientSearch'
 import { profileInitials, profileName } from '../../lib/profiles'
@@ -101,14 +100,8 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
       className="sticky top-0 z-40 flex min-h-[68px] flex-wrap items-center gap-3 px-[clamp(1rem,4vw,34px)] py-2 sm:gap-7 sm:py-0"
       style={{ background: 'var(--surface-page)', borderBottom: '1px solid var(--border-subtle)' }}
     >
-      <div className="flex items-center gap-[11px]">
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-[3px] p-[6px]"
-          style={{ background: 'var(--action-accent)' }}
-        >
-          <img src={WOUI_LOGO_URL} alt="Woui" className="h-full w-full object-contain" />
-        </div>
-        <span className="font-display text-[19px]" style={{ color: 'var(--text-primary)' }}>
+      <div className="flex items-center">
+        <span className="font-display text-[21px] font-semibold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>
           Woui
         </span>
       </div>

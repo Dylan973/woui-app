@@ -430,7 +430,7 @@ function NewPractitioner({
       <div className="grid gap-x-4 sm:grid-cols-2">
         <Input label="Prénom" value={form.first_name} onChange={(e) => set('first_name', e.target.value)} placeholder="Claire" autoFocus />
         <Input label="Nom" value={form.last_name} onChange={(e) => set('last_name', e.target.value)} placeholder="Morel" />
-        <Input label="Fonction" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} list="woui-fonctions-setup" />
+        <Input label="Spécialité" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} list="woui-fonctions-setup" />
         <Input
           label="Numéro RPPS"
           value={form.rpps ?? ''}

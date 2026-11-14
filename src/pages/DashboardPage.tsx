@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { matchesPatient } from '../components/layout/PatientSearch'
 import { Button } from '../components/ui/Button'
@@ -152,7 +152,7 @@ export function DashboardPage() {
   }
 
   const stats = [
-    { label: 'Envoyés', value: consents.length, sub: 'consentements au total' },
+    { label: 'Envoyés', value: consents.length, sub: 'envois au total' },
     { label: 'En attente', value: pending.length, sub: overdue > 0 ? `dont ${overdue} > 48 h` : 'tout est à jour', accent: true },
     { label: 'Visionnés', value: viewedOrMore.length, sub: `${viewRate} % de lecture` },
     { label: 'Signés', value: signedCount, sub: signRate > 0 ? `${signRate} % de signature` : '—' },
@@ -177,6 +177,231 @@ export function DashboardPage() {
       }),
     [filtered, sortDesc]
   )
+  // Envois regroupés par patient (fiche patient, sinon nom) ; l'envoi le plus pertinent en premier.
+  const groups = useMemo(() => {
+    const map = new Map<string, Consent[]>()
+    for (const c of rows) {
+      const key = c.patient_id ?? `nom:${c.patient.trim().toLowerCase()}`
+      const list = map.get(key)
+      if (list) list.push(c)
+      else map.set(key, [c])
+    }
+    return [...map.entries()].map(([key, items]) => ({ key, items }))
+  }, [rows])
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const toggleGroup = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  // Carte d'un envoi.
+  const renderCard = (c: Consent) => {
+    const step = statusStep(c.status)
+    const alert = appointmentAlert(c)
+    return (
+      <article
+        key={c.id}
+        className="grid grid-cols-[26px_1fr] gap-5 p-[24px_26px] transition-colors"
+        style={{ background: 'var(--surface-card)', border: `1px solid ${alert ? 'var(--danger-border)' : 'var(--border-subtle)'}`, borderRadius: 4 }}
+      >
+        <div className="flex flex-col items-center pt-[6px]">
+          {[0, 1, 2, 3].map((i) => {
+            const done = i < step
+            const isLast = i === step - 1
+            const dotColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'transparent'
+            const ringColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'var(--border-default)'
+            const railColor = i < step - 1 ? 'var(--text-primary)' : 'var(--border-subtle)'
+            return (
+              <div key={i} className="flex flex-col items-center">
+                <span
+                  className="h-[9px] w-[9px] rounded-full"
+                  style={{ border: `1px solid ${ringColor}`, background: dotColor }}
+                />
+                {i < 3 && <span className="w-px" style={{ height: 26, background: railColor }} />}
+              </div>
+            )
+          })}
+        </div>
+
+        <div>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[17px] font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                {c.patient_id ? (
+                  <Link to={`/patients/${c.patient_id}`} title="Ouvrir la fiche patient" style={{ color: 'inherit', textDecoration: 'none' }} className="hover:underline">
+                    {c.patient}
+                  </Link>
+                ) : (
+                  c.patient
+                )}
+              </div>
+              <div className="mt-[3px] text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {c.email}
+                {c.phone && (
+                  <>
+                    {' · '}
+                    <a href={`tel:${c.phone.replace(/[^0-9+]/g, '')}`} style={{ color: 'inherit' }}>
+                      {c.phone}
+                    </a>
+                  </>
+                )}
+              </div>
+              {cabinetView && (
+                <div className="mt-[6px] flex items-center gap-[6px] text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="h-[8px] w-[8px] rounded-full" style={{ background: profileOf(c.practitioner_id).color }} />
+                  {profileOf(c.practitioner_id).kind === 'cabinet' ? 'Praticien retiré' : profileName(profileOf(c.practitioner_id))}
+                </div>
+              )}
+            </div>
+            {c.status !== 'signed' && c.kind === 'both' && (c.quote_signed_at || c.consent_signed_at) ? (
+              <span
+                className="inline-flex items-center gap-[6px] whitespace-nowrap rounded-full px-[10px] py-1 text-[11px] font-medium"
+                style={{ background: 'rgba(63,199,154,.14)', color: 'var(--status-signed-text)' }}
+                title={c.quote_signed_at ? 'Devis signé : le consentement reste à signer' : 'Consentement signé : le devis reste à signer'}
+              >
+                <span className="inline-block h-[5px] w-[5px] rounded-full" style={{ background: 'currentColor' }} />
+                {c.quote_signed_at ? 'Devis signé' : 'Consentement signé'}
+              </span>
+            ) : (
+              <Badge status={c.status} />
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-[26px] text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div>
+              <div className="font-mono mb-[5px] text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                {KIND_LABEL[c.kind ?? 'consent']}
+              </div>
+              {c.kind === 'quote' ? (c.quote_name ?? 'Devis') : c.procedure}
+              {(c.kind === 'both' || c.kind === 'postop' || c.with_postop) && (
+                <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+                  {[
+                    c.kind === 'both' ? '+ devis' : null,
+                    c.kind === 'postop' ? 'conseils post-op seuls' : c.with_postop ? '+ conseils post-op' : null,
+                  ]
+                    .filter(Boolean)
+                    .map((tag) => (
+                      <span key={tag} className="rounded-[3px] px-[6px] py-[2px] text-[11px]" style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}>
+                        {tag}
+                      </span>
+                    ))}
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="font-mono mb-[5px] text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                Envoyé
+              </div>
+              <span className="font-mono">{formatShortDate(c.sent_at)}</span>
+            </div>
+            {c.appointment_at && (
+              <div>
+                <div className="font-mono mb-[5px] text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: alert ? 'var(--danger-text)' : 'var(--text-muted)' }}>
+                  Rendez-vous
+                </div>
+                <span className="font-mono" style={{ color: alert ? 'var(--danger-text)' : undefined, fontWeight: alert ? 600 : undefined }}>
+                  {formatAppointment(c.appointment_at)}
+                </span>
+              </div>
+            )}
+            {c.kind === 'postop' ? (
+              <div className="ml-auto text-right">
+                <div className="font-mono mb-[5px] text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Conseils
+                </div>
+                {c.status === 'sent' ? 'Pas encore ouverts' : 'Lien ouvert'}
+              </div>
+            ) : c.kind === 'quote' ? (
+              <div className="ml-auto text-right">
+                <div className="font-mono mb-[5px] text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Devis
+                </div>
+                {c.quote_opened_at ? 'Ouvert' : 'Pas encore ouvert'}
+              </div>
+            ) : (
+              <div className="ml-auto min-w-[90px]">
+                <div className="font-mono mb-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                  Vidéo {c.video_progress}%
+                </div>
+                <div className="h-[2px]" style={{ background: 'var(--border-subtle)' }}>
+                  <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--mint)' }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            className="mt-5 flex items-center gap-[18px] pt-4"
+            style={{ borderTop: '1px solid var(--border-subtle)' }}
+          >
+            {c.status === 'signed' ? (
+              c.pdf_url || c.quote_pdf_url ? (
+                <span className="flex flex-wrap gap-x-[18px] gap-y-1">
+                  {c.pdf_url && (
+                    <button
+                      onClick={() => downloadPdf(c)}
+                      className="cursor-pointer text-[0.8125rem]"
+                      style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                    >
+                      {c.quote_pdf_url ? 'Consentement signé' : 'Télécharger le PDF signé'}
+                    </button>
+                  )}
+                  {c.quote_pdf_url && (
+                    <button
+                      onClick={() => downloadPdf(c, 'quote')}
+                      className="cursor-pointer text-[0.8125rem]"
+                      style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                    >
+                      {c.pdf_url ? 'Devis signé' : 'Télécharger le devis signé'}
+                    </button>
+                  )}
+                </span>
+              ) : (
+                <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
+                  PDF en préparation
+                </span>
+              )
+            ) : (
+              <button
+                onClick={() => handleResend(c)}
+                disabled={resendingId === c.id}
+                title={alert ? `Rendez-vous ${appointmentLabel(c.appointment_at!)} : rien n’est encore signé` : undefined}
+                className={`text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-50 ${alert ? 'rounded-[3px] px-[10px] py-[4px] font-semibold' : ''}`}
+                style={{
+                  background: alert ? 'var(--danger-text)' : 'none',
+                  border: 0,
+                  color: alert ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: resendingId === c.id ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {resendingId === c.id ? 'Envoi…' : alert ? `Relancer · RDV ${appointmentLabel(c.appointment_at!)}` : 'Relancer'}
+              </button>
+            )}
+            <span
+              className="font-mono ml-auto text-[11px] font-semibold"
+              style={{ color: 'var(--text-muted)' }}
+              title={new Date(statusDate(c)).toLocaleString('fr-FR')}
+            >
+              {c.status === 'signed'
+                ? 'signé '
+                : c.status === 'viewed'
+                  ? 'vu '
+                  : c.status === 'opened'
+                    ? 'ouvert '
+                    : c.last_sent_at && new Date(c.last_sent_at).getTime() - new Date(c.sent_at).getTime() > 5 * 60000
+                      ? 'relancé '
+                      : 'envoyé '}
+              {formatRelative(statusDate(c))}
+            </span>
+          </div>
+        </div>
+      </article>
+    )
+  } // fin renderCard
+
 
   return (
     <div style={{ animation: 'nb-rise 0.5s var(--ease-standard) both' }}>
@@ -247,7 +472,7 @@ export function DashboardPage() {
                 ? `${alerts[0].patient} n’a encore rien signé, rendez-vous ${appointmentLabel(alerts[0].appointment_at!)}`
                 : `${alerts.length} patients n’ont encore rien signé à 2 jours ou moins de leur rendez-vous`}
             </div>
-            <div className="mt-[2px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            <div className="mt-[2px] text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>
               {alerts.length === 1 ? 'Relancez-le ou appelez-le' : 'Relancez-les ou appelez-les'} pour vérifier que le lien a bien été reçu.
             </div>
           </div>
@@ -305,7 +530,7 @@ export function DashboardPage() {
           {stats.map((s) => (
             <div key={s.label} className="p-[26px_26px_22px]" style={{ background: 'var(--surface-card)' }}>
               <div
-                className="font-mono text-[11px] uppercase tracking-[0.1em]"
+                className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em]"
                 style={{ color: s.accent ? 'var(--text-accent)' : 'var(--text-muted)' }}
               >
                 {s.label}
@@ -316,7 +541,7 @@ export function DashboardPage() {
               >
                 {s.value}
               </div>
-              <div className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+              <div className="text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {s.sub}
               </div>
             </div>
@@ -325,10 +550,12 @@ export function DashboardPage() {
       </div>
 
       {medianSignMinutes !== null && (
-        <p className="mt-3 text-[13px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="mt-3 text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>
           Délai médian entre l'envoi et la signature :{' '}
           <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-            {medianSignMinutes < 60 ? `${medianSignMinutes} min` : `${Math.round(medianSignMinutes / 60)} h`}
+            {medianSignMinutes < 60
+              ? `${medianSignMinutes.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} min`
+              : `${(medianSignMinutes / 60).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`}
           </span>
         </p>
       )}
@@ -339,7 +566,7 @@ export function DashboardPage() {
           {alerts.length > 0 && (
             <button
               onClick={() => setFilter('alert')}
-              className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px]"
+              className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px] font-semibold"
               style={{
                 background: filter === 'alert' ? 'var(--danger-text)' : 'var(--danger-bg)',
                 color: filter === 'alert' ? '#ffffff' : 'var(--danger-text)',
@@ -356,7 +583,7 @@ export function DashboardPage() {
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px]"
+                className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px] font-semibold"
                 style={{
                   background: active ? 'var(--action-primary)' : 'transparent',
                   color: active ? 'var(--action-primary-text)' : 'var(--text-muted)',
@@ -410,207 +637,63 @@ export function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-[18px] md:grid-cols-2">
-          {rows.map((c) => {
-            const step = statusStep(c.status)
-            const alert = appointmentAlert(c)
-            return (
-              <article
-                key={c.id}
-                className="grid grid-cols-[26px_1fr] gap-5 p-[24px_26px] transition-colors"
-                style={{ background: 'var(--surface-card)', border: `1px solid ${alert ? 'var(--danger-border)' : 'var(--border-subtle)'}`, borderRadius: 4 }}
-              >
-                <div className="flex flex-col items-center pt-[6px]">
-                  {[0, 1, 2, 3].map((i) => {
-                    const done = i < step
-                    const isLast = i === step - 1
-                    const dotColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'transparent'
-                    const ringColor = done ? (isLast ? 'var(--mint)' : 'var(--text-primary)') : 'var(--border-default)'
-                    const railColor = i < step - 1 ? 'var(--text-primary)' : 'var(--border-subtle)'
-                    return (
-                      <div key={i} className="flex flex-col items-center">
-                        <span
-                          className="h-[9px] w-[9px] rounded-full"
-                          style={{ border: `1px solid ${ringColor}`, background: dotColor }}
-                        />
-                        {i < 3 && <span className="w-px" style={{ height: 26, background: railColor }} />}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <div>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-[17px] font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                        {c.patient_id ? (
-                          <Link to={`/patients/${c.patient_id}`} title="Ouvrir la fiche patient" style={{ color: 'inherit', textDecoration: 'none' }} className="hover:underline">
-                            {c.patient}
-                          </Link>
-                        ) : (
-                          c.patient
-                        )}
-                      </div>
-                      <div className="mt-[3px] text-[13px]" style={{ color: 'var(--text-muted)' }}>
-                        {c.email}
-                        {c.phone && (
-                          <>
-                            {' · '}
-                            <a href={`tel:${c.phone.replace(/[^0-9+]/g, '')}`} style={{ color: 'inherit' }}>
-                              {c.phone}
-                            </a>
-                          </>
-                        )}
-                      </div>
-                      {cabinetView && (
-                        <div className="mt-[6px] flex items-center gap-[6px] text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                          <span className="h-[8px] w-[8px] rounded-full" style={{ background: profileOf(c.practitioner_id).color }} />
-                          {profileOf(c.practitioner_id).kind === 'cabinet' ? 'Praticien retiré' : profileName(profileOf(c.practitioner_id))}
-                        </div>
-                      )}
-                    </div>
-                    {c.status !== 'signed' && c.kind === 'both' && (c.quote_signed_at || c.consent_signed_at) ? (
-                      <span
-                        className="inline-flex items-center gap-[6px] whitespace-nowrap rounded-full px-[10px] py-1 text-[11px] font-medium"
-                        style={{ background: 'rgba(63,199,154,.14)', color: 'var(--status-signed-text)' }}
-                        title={c.quote_signed_at ? 'Devis signé : le consentement reste à signer' : 'Consentement signé : le devis reste à signer'}
-                      >
-                        <span className="inline-block h-[5px] w-[5px] rounded-full" style={{ background: 'currentColor' }} />
-                        {c.quote_signed_at ? 'Devis signé' : 'Consentement signé'}
-                      </span>
-                    ) : (
-                      <Badge status={c.status} />
-                    )}
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-[26px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                    <div>
-                      <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                        {KIND_LABEL[c.kind ?? 'consent']}
-                      </div>
-                      {c.kind === 'quote' ? (c.quote_name ?? 'Devis') : c.procedure}
-                      {(c.kind === 'both' || c.kind === 'postop' || c.with_postop) && (
-                        <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
-                          {[
-                            c.kind === 'both' ? '+ devis' : null,
-                            c.kind === 'postop' ? 'conseils post-op seuls' : c.with_postop ? '+ conseils post-op' : null,
-                          ]
-                            .filter(Boolean)
-                            .map((tag) => (
-                              <span key={tag} className="rounded-[3px] px-[6px] py-[2px] text-[11px]" style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}>
-                                {tag}
-                              </span>
-                            ))}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                        Envoyé
-                      </div>
-                      <span className="font-mono">{formatShortDate(c.sent_at)}</span>
-                    </div>
-                    {c.appointment_at && (
-                      <div>
-                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: alert ? 'var(--danger-text)' : 'var(--text-muted)' }}>
-                          Rendez-vous
-                        </div>
-                        <span className="font-mono" style={{ color: alert ? 'var(--danger-text)' : undefined, fontWeight: alert ? 600 : undefined }}>
-                          {formatAppointment(c.appointment_at)}
-                        </span>
-                      </div>
-                    )}
-                    {c.kind === 'postop' ? (
-                      <div className="ml-auto text-right">
-                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                          Conseils
-                        </div>
-                        {c.status === 'sent' ? 'Pas encore ouverts' : 'Lien ouvert'}
-                      </div>
-                    ) : c.kind === 'quote' ? (
-                      <div className="ml-auto text-right">
-                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                          Devis
-                        </div>
-                        {c.quote_opened_at ? 'Ouvert' : 'Pas encore ouvert'}
-                      </div>
-                    ) : (
-                      <div className="ml-auto min-w-[90px]">
-                        <div className="font-mono mb-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                          Vidéo {c.video_progress}%
-                        </div>
-                        <div className="h-[2px]" style={{ background: 'var(--border-subtle)' }}>
-                          <div className="h-full" style={{ width: `${c.video_progress}%`, background: 'var(--mint)' }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    className="mt-5 flex items-center gap-[18px] pt-4"
-                    style={{ borderTop: '1px solid var(--border-subtle)' }}
-                  >
-                    {c.status === 'signed' ? (
-                      c.pdf_url || c.quote_pdf_url ? (
-                        <span className="flex flex-wrap gap-x-[18px] gap-y-1">
-                          {c.pdf_url && (
-                            <button
-                              onClick={() => downloadPdf(c)}
-                              className="cursor-pointer text-[0.8125rem]"
-                              style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
-                            >
-                              {c.quote_pdf_url ? 'Consentement signé' : 'Télécharger le PDF signé'}
-                            </button>
-                          )}
-                          {c.quote_pdf_url && (
-                            <button
-                              onClick={() => downloadPdf(c, 'quote')}
-                              className="cursor-pointer text-[0.8125rem]"
-                              style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
-                            >
-                              {c.pdf_url ? 'Devis signé' : 'Télécharger le devis signé'}
-                            </button>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-[0.8125rem]" style={{ color: 'var(--text-muted)' }}>
-                          PDF en préparation
-                        </span>
-                      )
-                    ) : (
-                      <button
-                        onClick={() => handleResend(c)}
-                        disabled={resendingId === c.id}
-                        title={alert ? `Rendez-vous ${appointmentLabel(c.appointment_at!)} : rien n’est encore signé` : undefined}
-                        className={`text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-50 ${alert ? 'rounded-[3px] px-[10px] py-[4px] font-semibold' : ''}`}
-                        style={{
-                          background: alert ? 'var(--danger-text)' : 'none',
-                          border: 0,
-                          color: alert ? '#ffffff' : 'var(--text-secondary)',
-                          cursor: resendingId === c.id ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {resendingId === c.id ? 'Envoi…' : alert ? `Relancer · RDV ${appointmentLabel(c.appointment_at!)}` : 'Relancer'}
-                      </button>
-                    )}
-                    <span
-                      className="font-mono ml-auto text-[11px]"
-                      style={{ color: 'var(--text-muted)' }}
-                      title={new Date(statusDate(c)).toLocaleString('fr-FR')}
-                    >
-                      {c.status === 'signed'
-                        ? 'signé '
-                        : c.status === 'viewed'
-                          ? 'vu '
-                          : c.status === 'opened'
-                            ? 'ouvert '
-                            : c.last_sent_at && new Date(c.last_sent_at).getTime() - new Date(c.sent_at).getTime() > 5 * 60000
-                              ? 'relancé '
-                              : 'envoyé '}
-                      {formatRelative(statusDate(c))}
+          {groups.map((g) => {
+            if (g.items.length === 1) return <Fragment key={g.key}>{renderCard(g.items[0])}</Fragment>
+            if (expanded.has(g.key))
+              return (
+                <Fragment key={g.key}>
+                  <div className="flex items-center gap-3 md:col-span-2" style={{ marginBottom: -6 }}>
+                    <span className="text-[0.9375rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {g.items[0].patient}
                     </span>
+                    <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      {g.items.length} envois
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.key)}
+                      className="ml-auto cursor-pointer text-[13px] font-semibold"
+                      style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                    >
+                      Replier ↑
+                    </button>
                   </div>
-                </div>
-              </article>
+                  {g.items.map((c) => (
+                    <Fragment key={c.id}>{renderCard(c)}</Fragment>
+                  ))}
+                </Fragment>
+              )
+            // Plusieurs envois pour le même patient : une pile façon enveloppes, dépliée au clic.
+            const layers = Math.min(g.items.length - 1, 2)
+            return (
+              <div key={g.key} className="relative" style={{ paddingBottom: 8 + layers * 9 }}>
+                {Array.from({ length: layers }, (_, i) => layers - i).map((depth) => (
+                  <div
+                    key={depth}
+                    aria-hidden="true"
+                    className="absolute"
+                    style={{
+                      left: depth * 12,
+                      right: depth * 12,
+                      top: depth * 9,
+                      bottom: 8 + (layers - depth) * 9,
+                      background: 'var(--surface-card)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 4,
+                      opacity: depth === 2 ? 0.5 : 0.8,
+                    }}
+                  />
+                ))}
+                <div className="relative">{renderCard(g.items[0])}</div>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.key)}
+                  className="absolute bottom-[-6px] left-1/2 z-[1] -translate-x-1/2 cursor-pointer whitespace-nowrap rounded-full px-4 py-[6px] text-[12.5px] font-semibold"
+                  style={{ background: 'var(--action-primary)', color: 'var(--action-primary-text)', border: 0, boxShadow: '0 6px 18px rgba(0,0,0,0.15)' }}
+                >
+                  +{g.items.length - 1} autre{g.items.length > 2 ? 's' : ''} envoi{g.items.length > 2 ? 's' : ''} pour ce patient · Afficher
+                </button>
+              </div>
             )
           })}
         </div>

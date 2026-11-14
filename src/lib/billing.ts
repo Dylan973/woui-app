@@ -23,9 +23,23 @@ export const TRIAL_DAYS = 7
 /** Ouvre le portail client Stripe (factures, carte, changement de plan, résiliation). */
 export const openBillingPortal = (doctorId?: string) => redirectFrom('stripe-portal', {}, doctorId)
 
-/** Offre Clinique : ajoute ou retire un praticien supplémentaire. */
-export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string) =>
-  callFunction<{ extra_seats?: number }>('stripe-seats', { action }, { cabinetOf: doctorId })
+/** Réponse de stripe-seats. */
+export interface SeatResult {
+  /** Place accordée (paiement accepté) ou retirée. */
+  extra_seats?: number
+  paid?: boolean
+  /** Paiement à valider ou à régler sur la facture Stripe ; la place est accordée une fois payée. */
+  pay_url?: string
+  /** Essai gratuit en cours : ajouter une place démarre l'abonnement (montants en centimes). */
+  needs_trial_end?: boolean
+  plan_amount?: number
+  seat_amount?: number
+  interval?: BillingInterval
+}
+
+/** Offre Clinique : ajoute (après paiement) ou retire un praticien supplémentaire. */
+export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string, endTrial = false) =>
+  callFunction<SeatResult>('stripe-seats', { action, end_trial: endTrial }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
 
 /** Jours d'essai restants (0 si l'essai est terminé, null si le compte n'est pas en essai). */
 export function trialDaysLeft(doctor: Doctor): number | null {

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { AddSeatDialog } from './AddSeatDialog'
+import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { changeExtraSeats } from '../../lib/billing'
 import { EXTRA_SEAT_PRICE, INCLUDED_PRACTITIONERS, practitionerPlaces } from '../../lib/profiles'
@@ -17,17 +19,18 @@ interface TeamSeatsProps {
 /** Offre Clinique : 4 praticiens compris, places supplémentaires payantes. */
 export function TeamSeats({ doctor, practitionerCount, canManage, refetchDoctor, showToast }: TeamSeatsProps) {
   const [busy, setBusy] = useState<'add' | 'remove' | null>(null)
+  const [buying, setBuying] = useState(false)
   const extra = Math.max(doctor.extra_seats ?? 0, 0)
   const places = practitionerPlaces(doctor)
   const freePlaces = places - practitionerCount
 
-  const change = async (action: 'add' | 'remove') => {
+  const change = async (action: 'remove') => {
     setBusy(action)
     const { error } = await changeExtraSeats(action, doctor.id)
     if (!error) await refetchDoctor()
     setBusy(null)
     showToast(
-      error ?? (action === 'add' ? `Place ajoutée (+${EXTRA_SEAT_PRICE} € / mois)` : 'Place retirée de l’abonnement'),
+      error ?? 'Place retirée de l’abonnement',
       error ? 'warning' : 'success'
     )
   }
@@ -44,8 +47,8 @@ export function TeamSeats({ doctor, practitionerCount, canManage, refetchDoctor,
       </p>
       {canManage ? (
         <div className="flex flex-wrap gap-3">
-          <Button variant="primary" onClick={() => change('add')} disabled={busy !== null}>
-            {busy === 'add' ? 'Ajout…' : `Ajouter une place (+${EXTRA_SEAT_PRICE} € / mois)`}
+          <Button variant="primary" onClick={() => setBuying(true)} disabled={busy !== null}>
+            {`Ajouter une place (+${EXTRA_SEAT_PRICE} € / mois)`}
           </Button>
           {extra > 0 && (
             <Button variant="ghost" onClick={() => change('remove')} disabled={busy !== null || freePlaces <= 0}>
@@ -57,6 +60,22 @@ export function TeamSeats({ doctor, practitionerCount, canManage, refetchDoctor,
         <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
           Les places se gèrent depuis « Gestion du cabinet ».
         </p>
+      )}
+      {buying && (
+        <Modal onClose={() => setBuying(false)} maxWidth={500}>
+          <h2 className="font-display mb-3 text-[22px]" style={{ color: 'var(--text-primary)' }}>
+            Ajouter un praticien
+          </h2>
+          <AddSeatDialog
+            doctorId={doctor.id}
+            onCancel={() => setBuying(false)}
+            onDone={async () => {
+              await refetchDoctor()
+              setBuying(false)
+              showToast(`Paiement accepté, place ajoutée (+${EXTRA_SEAT_PRICE} € / mois)`)
+            }}
+          />
+        </Modal>
       )}
     </div>
   )

@@ -12,8 +12,8 @@
 
   /* Texte */
   --text-primary: #171734;
-  --text-secondary: rgba(23, 23, 52, 0.62);
-  --text-muted: rgba(23, 23, 52, 0.42);
+  --text-secondary: rgba(23, 23, 52, 0.74);
+  --text-muted: rgba(23, 23, 52, 0.56);
   --text-accent: #6c5ce7;
 
   /* Accent indigo */
@@ -80,8 +80,8 @@
 
   /* Texte */
   --text-primary: #f4f3ff;
-  --text-secondary: rgba(244, 243, 255, 0.66);
-  --text-muted: rgba(244, 243, 255, 0.44);
+  --text-secondary: rgba(255, 255, 255, 0.88);
+  --text-muted: rgba(255, 255, 255, 0.72);
   --text-accent: #9585ff;
 
   /* Accent indigo dark */

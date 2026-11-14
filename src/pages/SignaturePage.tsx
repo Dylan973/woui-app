@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { VideoPlayer } from '../components/signature/VideoPlayer'
 import { SignatureCanvas, type SignatureCanvasHandle } from '../components/signature/SignatureCanvas'
-import { WOUI_LOGO_URL } from '../lib/constants'
 import type { PatientConsent } from '../types'
 
 type LoadState = 'loading' | 'not-found' | 'ready'
@@ -67,13 +66,7 @@ function PatientHeader({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <span
-            className="flex items-center justify-center"
-            style={{ width: 22, height: 22, borderRadius: 6, background: MINT, padding: 4 }}
-          >
-            <img src={WOUI_LOGO_URL} alt="" className="h-full w-full object-contain" />
-          </span>
-          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Woui</span>
+          <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Woui</span>
         </div>
       )}
 
@@ -526,7 +519,7 @@ export function SignaturePage() {
         <DownloadButton label="Télécharger mon consentement signé" onClick={() => openDocument('consent_signed', true)} />
       )}
       {withQuote && (
-        <DownloadButton label="Télécharger mon devis signé (pour ma mutuelle)" onClick={() => openDocument('quote_signed', true)} />
+        <DownloadButton label="Télécharger mon devis signé" onClick={() => openDocument('quote_signed', true)} />
       )}
       {docError && <p style={{ fontSize: 13, color: '#c0564c' }}>{docError}</p>}
     </div>
@@ -688,19 +681,21 @@ export function SignaturePage() {
     <Card>
       <StepHeading n={quoteStep}>{quoteSigned ? 'Votre devis — signé' : 'Lisez et signez votre devis'}</StepHeading>
       <div className="flex flex-col gap-3" style={{ marginTop: 16 }}>
+        {quoteSigned ? (
+          <DownloadButton label="Télécharger mon devis signé" onClick={() => openDocument('quote_signed', true)} />
+        ) : (
         <DocumentRow
           title={consent.quote_name ?? 'Devis'}
           note={
-            quoteSigned
-              ? 'Devis signé. Téléchargez la version signée pour votre mutuelle.'
-              : quoteOpened
+            quoteOpened
                 ? 'Devis ouvert. Prenez le temps de le lire : vous pourrez revenir le signer avec ce même lien.'
                 : 'Ouvrez le devis pour pouvoir le signer. Vous pouvez aussi le télécharger pour votre mutuelle.'
           }
-          done={quoteOpened || quoteSigned}
-          onOpen={() => openDocument(quoteSigned ? 'quote_signed' : 'quote')}
-          onDownload={() => openDocument(quoteSigned ? 'quote_signed' : 'quote', true)}
+          done={quoteOpened}
+          onOpen={() => openDocument('quote')}
+          onDownload={() => openDocument('quote', true)}
         />
+        )}
         {docError && <p style={{ fontSize: 13, color: '#c0564c' }}>{docError}</p>}
       </div>
       {quoteSigned ? (

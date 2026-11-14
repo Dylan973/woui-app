@@ -54,6 +54,20 @@ interface ConsentRow {
   signed_at: string | null
   quote_signed_at: string | null
   consent_signed_at: string | null
+  quote_sign_box: QuoteSignBox | null
+}
+
+interface Box {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+/** Cadres de signature repérés dans le devis au dépôt (coordonnées PDF). */
+interface QuoteSignBox {
+  page: number
+  patient: Box
+  practitioner?: Box
 }
 
 type Signer = { first_name?: string | null; last_name?: string | null; specialty?: string | null; phone?: string | null }
@@ -207,6 +221,34 @@ function decodeDataUrl(dataUrl: string): Uint8Array {
   return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))
 }
 
+/**
+ * Inscrit une image (signature) dans un cadre du document, sans la déformer, alignée à gauche
+ * et centrée verticalement. Renvoie false si le cadre n'est pas exploitable.
+ */
+async function drawInBox(pdf: PDFDocument, pageIndex: number, box: Box | undefined, png: Uint8Array | null, note?: string) {
+  if (!box || !png) return false
+  const valid = [box.x, box.y, box.w, box.h].every((v) => Number.isFinite(v)) && box.w > 20 && box.h > 15
+  if (!valid || pageIndex < 0 || pageIndex >= pdf.getPageCount()) return false
+  try {
+    const page = pdf.getPage(pageIndex)
+    const img = await pdf.embedPng(png)
+    // Mention en haut du cadre (sous son libellé), signature en dessous.
+    const noteSpace = note ? 11 : 0
+    const scale = Math.min((box.w - 8) / img.width, (box.h - 10 - noteSpace) / img.height, 1.2)
+    const w = img.width * scale
+    const h = img.height * scale
+    page.drawImage(img, { x: box.x + 4, y: box.y + 4 + (box.h - 8 - noteSpace - h) / 2, width: w, height: h })
+    if (note) {
+      const font = await pdf.embedFont(StandardFonts.Helvetica)
+      page.drawText(safe(note), { x: box.x + 2, y: box.y + box.h - 8, size: 6.5, font, color: rgb(0.35, 0.35, 0.45) })
+    }
+    return true
+  } catch (error) {
+    console.error('Signature non inscrite dans le devis:', error)
+    return false
+  }
+}
+
 async function sha256Hex(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
@@ -355,8 +397,17 @@ Deno.serve(async (req) => {
 
       if (part === 'quote') {
         try {
-          const { pdf } = await baseDocument(consent.quote_path)
+          const { pdf, fromFile } = await baseDocument(consent.quote_path)
           pdf.setTitle(`Devis signé — ${consent.patient}`)
+          // Signatures inscrites directement dans les cadres du devis (patient, praticien), quand ils ont été repérés.
+          const box = fromFile ? consent.quote_sign_box : null
+          if (box) {
+            const day = signedAt
+              ? new Date(signedAt).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' })
+              : ''
+            // Le cadre du praticien porte déjà le tampon imprimé par le logiciel : seule la signature du patient y est ajoutée.
+            await drawInBox(pdf, box.page, box.patient, patientPng, `Signé électroniquement le ${day} via Woui`)
+          }
           await addSignaturePage(pdf, {
             title: 'PAGE DE SIGNATURE',
             subtitle: `Devis${consent.quote_name ? ` — ${consent.quote_name}` : ''}`,

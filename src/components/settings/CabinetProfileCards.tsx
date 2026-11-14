@@ -134,7 +134,7 @@ export function PractitionerInfoCard({
       <div className="grid max-w-[700px] gap-x-[26px] md:grid-cols-2">
         <Input label="Prénom" value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
         <Input label="Nom" value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
-        <Input label="Fonction" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} list="woui-fonctions-settings" />
+        <Input label="Spécialité" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} list="woui-fonctions-settings" />
       </div>
       <datalist id="woui-fonctions-settings">
         {PRACTITIONER_FUNCTIONS.map((f) => (

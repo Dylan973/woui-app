@@ -7,8 +7,8 @@ import { ClinicUpsellModal } from '../components/profiles/ClinicModals'
 import { supabase } from '../lib/supabase'
 import { removeAvatar, uploadAvatar } from '../lib/avatar'
 import { WOUI_LOGO_URL } from '../lib/constants'
-import { EXTRA_SEAT_PRICE, isCabinetAccount, practitionerPlaces, profileName, readCabinetSession } from '../lib/profiles'
-import { changeExtraSeats } from '../lib/billing'
+import { isCabinetAccount, practitionerPlaces, profileName, readCabinetSession } from '../lib/profiles'
+import { AddSeatDialog } from '../components/settings/AddSeatDialog'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
@@ -38,17 +38,20 @@ export function ProfilesPage() {
   } = useOutletContext<DashboardOutletContext>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [managing, setManaging] = useState(searchParams.get('gerer') === '1')
+  const [managingState, setManaging] = useState(searchParams.get('gerer') === '1')
   const [editing, setEditing] = useState<Profile | 'new' | null>(null)
   const [unlocking, setUnlocking] = useState<Profile | null>(null)
   const [resetNote, setResetNote] = useState<string | null>(null)
   const [upsell, setUpsell] = useState(false)
   const [creatingCabinetPin, setCreatingCabinetPin] = useState(false)
   const [seatModal, setSeatModal] = useState(false)
-  const [seatBusy, setSeatBusy] = useState(false)
-  const [seatError, setSeatError] = useState<string | null>(null)
   // Offre Clinique : compte du cabinet, « Gestion du cabinet » + profils des praticiens.
   const cabinet = isCabinetAccount(doctor)
+  // Ajouter, modifier ou retirer un profil : réservé à l'administrateur
+  // (« Gestion du cabinet » ouverte avec son code, ou titulaire du compte en offre Pro / Starter).
+  const isAdmin = cabinet ? activeProfile.kind === 'cabinet' && Boolean(readCabinetSession(doctor.id)) : activeProfile.isMain
+  const canManage = isAdmin && (profilesEnabled || profiles.length === 1)
+  const managing = managingState && canManage
   const practitionerCount = profiles.filter((p) => !p.isMain).length
   const places = practitionerPlaces(doctor)
 
@@ -137,24 +140,16 @@ export function ProfilesPage() {
     return { error: null }
   }
 
+  /** Place payée : le profil du nouveau praticien peut être créé. */
   const addSeat = async () => {
-    setSeatBusy(true)
-    setSeatError(null)
-    const { error } = await changeExtraSeats('add', doctor.id)
-    setSeatBusy(false)
-    if (error) {
-      setSeatError(error)
-      return
-    }
     await refetchDoctor()
     setSeatModal(false)
-    showToast('Place ajoutée. Vous pouvez créer le profil du praticien.')
+    showToast('Paiement accepté, place ajoutée. Vous pouvez créer le profil du praticien.')
     setEditing('new')
   }
 
   const onAdd = () => {
     if (cabinet && practitionerCount >= places) {
-      setSeatError(null)
       setSeatModal(true)
     } else if (!cabinet && practitionerCount >= places) setUpsell(true)
     else setEditing('new')
@@ -183,7 +178,6 @@ export function ProfilesPage() {
     setResetNote(error ?? `E-mail envoyé${sentTo ? ` à ${sentTo}` : ''}. Ouvrez le lien pour supprimer le code.`)
   }
 
-  const canManage = profilesEnabled || profiles.length === 1
 
   return (
     <div className="flex min-h-screen flex-col items-center px-6 pb-16 pt-[clamp(2.5rem,9vh,96px)]" style={{ background: 'var(--surface-page)' }}>
@@ -204,7 +198,10 @@ export function ProfilesPage() {
             : 'L’offre Starter comprend un profil praticien. Pour un second praticien, passez à l’offre Pro (2 profils) ou Clinique (4 praticiens).'}
       </p>
 
-      <div className="mt-[clamp(2rem,6vh,56px)] flex max-w-[900px] flex-wrap justify-center gap-[clamp(1rem,3vw,32px)]">
+      <div
+        className="mt-[clamp(2rem,6vh,56px)] grid grid-cols-2 justify-center gap-x-[clamp(1rem,3vw,32px)] gap-y-[clamp(1.5rem,4vh,40px)] sm:[grid-template-columns:var(--profile-cols)]"
+        style={{ '--profile-cols': `repeat(${Math.min(profiles.length + (managing || !profilesEnabled ? 1 : 0), 4)}, 168px)` } as React.CSSProperties}
+      >
         {profiles.map((profile) => {
           const locked = pinApi.pins[profile.id]?.hasPin ?? false
           return (
@@ -212,7 +209,7 @@ export function ProfilesPage() {
               key={profile.id}
               type="button"
               onClick={() => onTile(profile)}
-              className="group flex cursor-pointer flex-col items-center gap-3"
+              className="group flex w-full min-w-0 cursor-pointer flex-col items-center gap-3"
               style={{ background: 'none', border: 0 }}
               aria-label={`${profileName(profile)}${locked ? ', protégé par un code' : ''}`}
             >
@@ -258,6 +255,7 @@ export function ProfilesPage() {
         })}
 
         {profilesEnabled ? (
+          managing && (
           <button
             type="button"
             onClick={onAdd}
@@ -279,6 +277,7 @@ export function ProfilesPage() {
               </span>
             </span>
           </button>
+          )
         ) : (
           <button
             type="button"
@@ -421,26 +420,9 @@ export function ProfilesPage() {
           <h2 className="font-display mt-3 text-[24px] leading-[1.2]" style={{ color: 'var(--text-primary)' }}>
             Votre offre comprend {places} praticiens
           </h2>
-          <p className="my-4 text-[0.9375rem] leading-[1.6]" style={{ color: 'var(--text-secondary)' }}>
-            Chaque praticien en plus coûte {EXTRA_SEAT_PRICE} € par mois, ajouté à l’abonnement du cabinet au prorata. Vous pourrez retirer la
-            place depuis Gestion du cabinet.
-          </p>
+          <div className="mt-4" />
           {readCabinetSession(doctor.id) ? (
-            <>
-              {seatError && (
-                <p className="mb-3 text-[0.875rem]" style={{ color: 'var(--danger-text)' }}>
-                  {seatError}
-                </p>
-              )}
-              <div className="flex flex-wrap justify-end gap-3">
-                <Button variant="ghost" size="sm" onClick={() => setSeatModal(false)}>
-                  Annuler
-                </Button>
-                <Button variant="primary" size="sm" disabled={seatBusy} onClick={addSeat}>
-                  {seatBusy ? 'Ajout…' : `Ajouter une place (${EXTRA_SEAT_PRICE} € / mois)`}
-                </Button>
-              </div>
-            </>
+            <AddSeatDialog doctorId={doctor.id} onCancel={() => setSeatModal(false)} onDone={addSeat} />
           ) : (
             <>
               <p className="mb-4 text-[0.875rem]" style={{ color: 'var(--text-muted)' }}>

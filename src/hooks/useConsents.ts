@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { findQuoteSignBox, type QuoteSignBox } from '../lib/quoteLayout'
 import { uploadPdf } from '../lib/documents'
 import type { Consent, NewConsentForm } from '../types'
 
@@ -91,12 +92,14 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
       const kind = withConsent && withQuote ? 'both' : withConsent ? 'consent' : withQuote ? 'quote' : 'postop'
 
       // Devis : le PDF est déposé dans le stockage privé du compte avant la création de l'envoi.
-      let quote: { quote_path: string; quote_name: string } | null = null
+      let quote: { quote_path: string; quote_name: string; quote_sign_box: QuoteSignBox | null } | null = null
       if (withQuote) {
         if (!form.quoteFile) return { error: 'Ajoutez le devis au format PDF.' }
         const uploaded = await uploadPdf(doctorId, 'devis', form.quoteFile)
         if (uploaded.error || !uploaded.path) return { error: uploaded.error ?? 'Le devis n’a pas pu être envoyé.' }
-        quote = { quote_path: uploaded.path, quote_name: form.quoteFile.name.slice(0, 180) }
+        // Cadres de signature du devis : la signature du patient s'y inscrira directement.
+        const signBox = await findQuoteSignBox(form.quoteFile)
+        quote = { quote_path: uploaded.path, quote_name: form.quoteFile.name.slice(0, 180), quote_sign_box: signBox }
       }
 
       // Conseils post-opératoires : PDF choisi à l'envoi, sinon la base joint le modèle du cabinet.
