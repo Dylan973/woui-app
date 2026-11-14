@@ -86,26 +86,44 @@ export function useConsents(doctorId: string | null): UseConsentsResult {
     async (form: NewConsentForm, practitionerId: string | null = null) => {
       if (!doctorId) return { error: 'Praticien non identifié.' }
 
+      const { withConsent, withQuote, withPostop } = form
+      if (!withConsent && !withQuote && !withPostop) return { error: 'Choisissez au moins un document à envoyer.' }
+      const kind = withConsent && withQuote ? 'both' : withConsent ? 'consent' : withQuote ? 'quote' : 'postop'
+
       // Devis : le PDF est déposé dans le stockage privé du compte avant la création de l'envoi.
       let quote: { quote_path: string; quote_name: string } | null = null
-      if (form.kind !== 'consent') {
+      if (withQuote) {
         if (!form.quoteFile) return { error: 'Ajoutez le devis au format PDF.' }
         const uploaded = await uploadPdf(doctorId, 'devis', form.quoteFile)
         if (uploaded.error || !uploaded.path) return { error: uploaded.error ?? 'Le devis n’a pas pu être envoyé.' }
         quote = { quote_path: uploaded.path, quote_name: form.quoteFile.name.slice(0, 180) }
       }
 
+      // Conseils post-opératoires : PDF choisi à l'envoi, sinon la base joint le modèle du cabinet.
+      let postop: { postop_path: string; postop_name: string } | null = null
+      if (withPostop && form.postopFile) {
+        const uploaded = await uploadPdf(doctorId, 'postop', form.postopFile)
+        if (uploaded.error || !uploaded.path) return { error: uploaded.error ?? 'Les conseils post-opératoires n’ont pas pu être envoyés.' }
+        postop = { postop_path: uploaded.path, postop_name: form.postopFile.name.slice(0, 180) }
+      }
+
+      const appointment = form.appointmentAt ? new Date(form.appointmentAt) : null
+
       const { data, error: insertError } = await supabase
         .from('consents')
         .insert([
           {
             doctor_id: doctorId,
-            patient: form.patient,
-            email: form.email,
-            procedure: form.kind === 'quote' ? 'Devis' : form.procedure,
-            kind: form.kind,
+            patient: form.patient.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim() || null,
+            procedure: kind === 'quote' ? 'Devis' : form.procedure,
+            kind,
+            with_postop: withPostop,
+            appointment_at: appointment && !Number.isNaN(appointment.getTime()) ? appointment.toISOString() : null,
             ...(quote ?? {}),
-            // Profil praticien qui envoie (offre Clinique) ; absent = titulaire du compte.
+            ...(postop ?? {}),
+            // Profil praticien qui envoie (Pro, Clinique) ; absent = titulaire du compte.
             ...(practitionerId ? { practitioner_id: practitionerId } : {}),
           },
         ])

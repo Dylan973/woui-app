@@ -6,10 +6,11 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { supabase } from '../lib/supabase'
 import { profileName } from '../lib/profiles'
+import { appointmentAlert, appointmentLabel, formatAppointment, formatRelative, statusDate } from '../lib/consentTiming'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import type { Consent, ConsentStatus } from '../types'
 
-type FilterKey = 'all' | ConsentStatus
+type FilterKey = 'all' | 'alert' | ConsentStatus
 
 const FILTERS: [FilterKey, string][] = [
   ['all', 'Tous'],
@@ -37,20 +38,13 @@ function formatShortDate(iso: string): string {
   )
 }
 
-function formatRelative(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const min = Math.round(diffMs / 60000)
-  if (min < 1) return "à l'instant"
-  if (min < 60) return `il y a ${min} min`
-  const h = Math.round(min / 60)
-  if (h < 24) return `il y a ${h} h`
-  const d = Math.round(h / 24)
-  return d === 1 ? 'hier' : `il y a ${d} j`
+/** Envoi encore à suivre : rien de signé (ou conseils post-opératoires jamais ouverts). */
+function isPending(c: Consent): boolean {
+  if (c.kind === 'postop') return c.status === 'sent'
+  return c.status === 'sent' || c.status === 'opened'
 }
 
-function lastEventDate(c: Consent): string {
-  return c.signed_at ?? c.viewed_at ?? c.opened_at ?? c.sent_at
-}
+const KIND_LABEL: Record<string, string> = { consent: 'Acte', quote: 'Document', both: 'Acte', postop: 'Acte' }
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null
@@ -89,7 +83,14 @@ export function DashboardPage() {
     setShowTutorial(false)
   }
 
-  const pending = useMemo(() => consents.filter((c) => c.status === 'sent' || c.status === 'opened'), [consents])
+  const pending = useMemo(() => consents.filter(isPending), [consents])
+  const alerts = useMemo(
+    () =>
+      consents
+        .filter((c) => appointmentAlert(c))
+        .sort((a, b) => new Date(a.appointment_at!).getTime() - new Date(b.appointment_at!).getTime()),
+    [consents]
+  )
   const overdue = useMemo(
     () => pending.filter((c) => Date.now() - new Date(c.sent_at).getTime() > 48 * 3600 * 1000).length,
     [pending]
@@ -158,12 +159,18 @@ export function DashboardPage() {
   ]
 
   const filtered = useMemo(
-    () => consents.filter((c) => (filter === 'all' || c.status === filter) && matchesPatient(c, query)),
+    () =>
+      consents.filter(
+        (c) => (filter === 'all' || (filter === 'alert' ? appointmentAlert(c) : c.status === filter)) && matchesPatient(c, query)
+      ),
     [consents, filter, query]
   )
   const rows = useMemo(
     () =>
       [...filtered].sort((a, b) => {
+        const alertA = appointmentAlert(a) ? 1 : 0
+        const alertB = appointmentAlert(b) ? 1 : 0
+        if (alertA !== alertB) return alertB - alertA
         const ta = new Date(a.sent_at).getTime()
         const tb = new Date(b.sent_at).getTime()
         return sortDesc ? tb - ta : ta - tb
@@ -222,6 +229,31 @@ export function DashboardPage() {
                 ))}
             </select>
           )}
+        </div>
+      )}
+      {alerts.length > 0 && (
+        <div
+          role="alert"
+          className="mb-[22px] flex flex-wrap items-center gap-x-5 gap-y-3 p-[18px_22px]"
+          style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 4 }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger-text)" strokeWidth="1.8" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01" />
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
+          <div className="min-w-[220px] flex-1">
+            <div className="text-[0.9375rem] font-semibold" style={{ color: 'var(--danger-text)' }}>
+              {alerts.length === 1
+                ? `${alerts[0].patient} n’a encore rien signé, rendez-vous ${appointmentLabel(alerts[0].appointment_at!)}`
+                : `${alerts.length} patients n’ont encore rien signé à 2 jours ou moins de leur rendez-vous`}
+            </div>
+            <div className="mt-[2px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+              {alerts.length === 1 ? 'Relancez-le ou appelez-le' : 'Relancez-les ou appelez-les'} pour vérifier que le lien a bien été reçu.
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setFilter('alert')}>
+            Voir {alerts.length > 1 ? 'les patients' : 'le patient'}
+          </Button>
         </div>
       )}
       {/* ── Hero + stats ── */}
@@ -304,6 +336,19 @@ export function DashboardPage() {
       {/* ── Filtres + tri ── */}
       <div className="my-[28px] flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">
+          {alerts.length > 0 && (
+            <button
+              onClick={() => setFilter('alert')}
+              className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px]"
+              style={{
+                background: filter === 'alert' ? 'var(--danger-text)' : 'var(--danger-bg)',
+                color: filter === 'alert' ? '#ffffff' : 'var(--danger-text)',
+                border: `1px solid ${filter === 'alert' ? 'transparent' : 'var(--danger-border)'}`,
+              }}
+            >
+              RDV à risque {alerts.length}
+            </button>
+          )}
           {FILTERS.map(([key, label]) => {
             const active = filter === key
             const count = key === 'all' ? consents.length : consents.filter((c) => c.status === key).length
@@ -367,11 +412,12 @@ export function DashboardPage() {
         <div className="grid gap-[18px] md:grid-cols-2">
           {rows.map((c) => {
             const step = statusStep(c.status)
+            const alert = appointmentAlert(c)
             return (
               <article
                 key={c.id}
                 className="grid grid-cols-[26px_1fr] gap-5 p-[24px_26px] transition-colors"
-                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+                style={{ background: 'var(--surface-card)', border: `1px solid ${alert ? 'var(--danger-border)' : 'var(--border-subtle)'}`, borderRadius: 4 }}
               >
                 <div className="flex flex-col items-center pt-[6px]">
                   {[0, 1, 2, 3].map((i) => {
@@ -400,6 +446,14 @@ export function DashboardPage() {
                       </div>
                       <div className="mt-[3px] text-[13px]" style={{ color: 'var(--text-muted)' }}>
                         {c.email}
+                        {c.phone && (
+                          <>
+                            {' · '}
+                            <a href={`tel:${c.phone.replace(/[^0-9+]/g, '')}`} style={{ color: 'inherit' }}>
+                              {c.phone}
+                            </a>
+                          </>
+                        )}
                       </div>
                       {cabinetView && (
                         <div className="mt-[6px] flex items-center gap-[6px] text-[12px]" style={{ color: 'var(--text-secondary)' }}>
@@ -414,12 +468,21 @@ export function DashboardPage() {
                   <div className="mt-5 flex flex-wrap gap-[26px] text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                     <div>
                       <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
-                        {c.kind === 'quote' ? 'Document' : 'Acte'}
+                        {KIND_LABEL[c.kind ?? 'consent']}
                       </div>
                       {c.kind === 'quote' ? (c.quote_name ?? 'Devis') : c.procedure}
-                      {c.kind === 'both' && (
-                        <span className="ml-2 rounded-[3px] px-[6px] py-[2px] text-[11px]" style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}>
-                          + devis
+                      {(c.kind === 'both' || c.kind === 'postop' || c.with_postop) && (
+                        <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+                          {[
+                            c.kind === 'both' ? '+ devis' : null,
+                            c.kind === 'postop' ? 'conseils post-op seuls' : c.with_postop ? '+ conseils post-op' : null,
+                          ]
+                            .filter(Boolean)
+                            .map((tag) => (
+                              <span key={tag} className="rounded-[3px] px-[6px] py-[2px] text-[11px]" style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}>
+                                {tag}
+                              </span>
+                            ))}
                         </span>
                       )}
                     </div>
@@ -429,7 +492,24 @@ export function DashboardPage() {
                       </div>
                       <span className="font-mono">{formatShortDate(c.sent_at)}</span>
                     </div>
-                    {c.kind === 'quote' ? (
+                    {c.appointment_at && (
+                      <div>
+                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: alert ? 'var(--danger-text)' : 'var(--text-muted)' }}>
+                          Rendez-vous
+                        </div>
+                        <span className="font-mono" style={{ color: alert ? 'var(--danger-text)' : undefined, fontWeight: alert ? 600 : undefined }}>
+                          {formatAppointment(c.appointment_at)}
+                        </span>
+                      </div>
+                    )}
+                    {c.kind === 'postop' ? (
+                      <div className="ml-auto text-right">
+                        <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                          Conseils
+                        </div>
+                        {c.status === 'sent' ? 'Pas encore ouverts' : 'Lien ouvert'}
+                      </div>
+                    ) : c.kind === 'quote' ? (
                       <div className="ml-auto text-right">
                         <div className="font-mono mb-[5px] text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
                           Devis
@@ -483,20 +563,33 @@ export function DashboardPage() {
                       <button
                         onClick={() => handleResend(c)}
                         disabled={resendingId === c.id}
-                        className="text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-50"
+                        title={alert ? `Rendez-vous ${appointmentLabel(c.appointment_at!)} : rien n’est encore signé` : undefined}
+                        className={`text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-50 ${alert ? 'rounded-[3px] px-[10px] py-[4px] font-semibold' : ''}`}
                         style={{
-                          background: 'none',
+                          background: alert ? 'var(--danger-text)' : 'none',
                           border: 0,
-                          color: 'var(--text-secondary)',
+                          color: alert ? '#ffffff' : 'var(--text-secondary)',
                           cursor: resendingId === c.id ? 'not-allowed' : 'pointer',
                         }}
                       >
-                        {resendingId === c.id ? 'Envoi…' : 'Relancer'}
+                        {resendingId === c.id ? 'Envoi…' : alert ? `Relancer · RDV ${appointmentLabel(c.appointment_at!)}` : 'Relancer'}
                       </button>
                     )}
-                    <span className="font-mono ml-auto text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                      {c.status === 'signed' ? 'signé ' : c.status === 'viewed' ? 'vu ' : c.status === 'opened' ? 'ouvert ' : 'envoyé '}
-                      {formatRelative(lastEventDate(c))}
+                    <span
+                      className="font-mono ml-auto text-[11px]"
+                      style={{ color: 'var(--text-muted)' }}
+                      title={new Date(statusDate(c)).toLocaleString('fr-FR')}
+                    >
+                      {c.status === 'signed'
+                        ? 'signé '
+                        : c.status === 'viewed'
+                          ? 'vu '
+                          : c.status === 'opened'
+                            ? 'ouvert '
+                            : c.last_sent_at && new Date(c.last_sent_at).getTime() - new Date(c.sent_at).getTime() > 5 * 60000
+                              ? 'relancé '
+                              : 'envoyé '}
+                      {formatRelative(statusDate(c))}
                     </span>
                   </div>
                 </div>

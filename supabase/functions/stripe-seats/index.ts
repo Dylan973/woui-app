@@ -1,4 +1,4 @@
-// Offre Clinique : ajoute ou retire un praticien supplémentaire (au-delà des 3 compris).
+// Offre Clinique : ajoute ou retire un praticien supplémentaire (au-delà des 4 compris).
 // Réservé à « Gestion du cabinet » (jeton de session dans x-woui-cabinet).
 // Corps : { action: 'add' | 'remove' }. Le webhook met ensuite doctors.extra_seats à jour ;
 // la réponse renvoie aussi le nouveau total pour un affichage immédiat.
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
         .select('id', { count: 'exact', head: true })
         .eq('doctor_id', doctor.id)
         .is('archived_at', null)
-      if ((count ?? 0) > 3 + current - 1) {
+      if ((count ?? 0) > 4 + current - 1) {
         return json({ error: 'Archivez d’abord un profil praticien pour libérer cette place.' }, 409)
       }
       if (current === 1) await stripe.subscriptionItems.del(seatItem!.id, { proration_behavior: 'create_prorations' })

@@ -27,15 +27,15 @@ function BenefitList() {
   )
 }
 
-/** Affiché une fois quand un compte passe à l'offre Clinique. */
-export function ClinicWelcomeModal({ onCreate, onLater }: { onCreate: () => void; onLater: () => void }) {
+/** Affiché une fois quand un compte passe à l'offre Pro (2 profils) ou Clinique. */
+export function ClinicWelcomeModal({ onCreate, onLater, plan = 'clinic' }: { onCreate: () => void; onLater: () => void; plan?: 'pro' | 'clinic' }) {
   return (
     <Modal onClose={onLater} maxWidth={500}>
       <div className="font-mono text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-accent)' }}>
-        Offre Clinique activée
+        {plan === 'pro' ? 'Offre Pro : 2 profils praticiens' : 'Offre Clinique activée'}
       </div>
       <h2 className="font-display mt-3 text-[26px] leading-[1.2]" style={{ color: 'var(--text-primary)' }}>
-        Vous pouvez maintenant créer un profil par praticien
+        {plan === 'pro' ? 'Vous pouvez ajouter un second praticien' : 'Vous pouvez maintenant créer un profil par praticien'}
       </h2>
       <BenefitList />
       <div className="flex flex-wrap justify-end gap-3">
@@ -43,30 +43,37 @@ export function ClinicWelcomeModal({ onCreate, onLater }: { onCreate: () => void
           Plus tard
         </Button>
         <Button variant="primary" size="sm" onClick={onCreate}>
-          Créer les profils
+          {plan === 'pro' ? 'Ajouter un praticien' : 'Créer les profils'}
         </Button>
       </div>
     </Modal>
   )
 }
 
-/** Affiché quand un compte Starter ou Pro clique sur l'ajout de profil (grisé). */
-export function ClinicUpsellModal({ onSeePlans, onClose }: { onSeePlans: () => void; onClose: () => void }) {
+/**
+ * Affiché quand l'offre ne permet pas d'ajouter un profil : Starter (1 profil) → Pro (2) ;
+ * Pro (2 profils) → Clinique (4 praticiens).
+ */
+export function ClinicUpsellModal({ onSeePlans, onClose, plan = 'starter' }: { onSeePlans: () => void; onClose: () => void; plan?: 'starter' | 'pro' | 'clinic' }) {
+  const toPro = plan === 'starter'
   return (
     <Modal onClose={onClose} maxWidth={500}>
       <div className="font-mono text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-accent)' }}>
-        Disponible avec l'abonnement Clinique
+        {toPro ? 'L’offre Starter comprend 1 profil praticien' : 'L’offre Pro comprend 2 profils praticiens'}
       </div>
       <h2 className="font-display mt-3 text-[26px] leading-[1.2]" style={{ color: 'var(--text-primary)' }}>
-        Plusieurs praticiens dans le même cabinet ?
+        {toPro ? 'Un second praticien ? Passez à l’offre Pro' : 'Plus de 2 praticiens ? Passez à l’offre Clinique'}
       </h2>
+      <p className="mt-3 text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+        Starter : 1 profil · Pro : 2 profils · Clinique : 4 praticiens compris, puis 40 € par mois par praticien supplémentaire.
+      </p>
       <BenefitList />
       <div className="flex flex-wrap justify-end gap-3">
         <Button variant="ghost" size="sm" onClick={onClose}>
           Fermer
         </Button>
         <Button variant="primary" size="sm" onClick={onSeePlans}>
-          Voir l'offre Clinique
+          {toPro ? 'Voir l’offre Pro' : 'Voir l’offre Clinique'}
         </Button>
       </div>
     </Modal>

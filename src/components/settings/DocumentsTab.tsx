@@ -4,7 +4,7 @@ import { useConsentTemplates } from '../../hooks/useConsentTemplates'
 import { documentUrl } from '../../lib/documents'
 import { PROCEDURES } from '../../lib/constants'
 import { profileName } from '../../lib/profiles'
-import type { Profile } from '../../types'
+import type { ConsentTemplate, Profile } from '../../types'
 import type { ToastType } from '../ui/Toast'
 
 interface DocumentsTabProps {
@@ -18,16 +18,19 @@ interface DocumentsTabProps {
 
 const CARD = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
 
-/** Paramètres > Documents PDF : signature ou tampon du praticien, formulaires de consentement du cabinet. */
+/** Paramètres > Documents PDF : signature et tampon du praticien, modèles du cabinet (consentements, conseils post-opératoires). */
 export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast, withSignature = true }: DocumentsTabProps) {
   const { templates, loading, saveTemplate, removeTemplate } = useConsentTemplates(doctorId)
   const [busy, setBusy] = useState<string | null>(null)
 
-  const upload = async (procedure: string, file: File) => {
-    setBusy(procedure)
-    const { error } = await saveTemplate(procedure, file)
+  const upload = async (procedure: string, file: File, category: ConsentTemplate['category']) => {
+    setBusy(`${category}:${procedure}`)
+    const { error } = await saveTemplate(procedure, file, category)
     setBusy(null)
-    showToast(error ?? `Formulaire enregistré pour « ${procedure} »`, error ? 'warning' : 'success')
+    showToast(
+      error ?? `${category === 'postop' ? 'Conseils post-opératoires enregistrés' : 'Formulaire enregistré'} pour « ${procedure} »`,
+      error ? 'warning' : 'success'
+    )
   }
 
   const open = async (path: string) => {
@@ -41,88 +44,97 @@ export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showTo
       {withSignature && (
       <div className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
         <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
-          Votre signature ou tampon
+          Votre signature et votre tampon
         </h2>
         <p className="mb-6 mt-[6px] max-w-[640px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-          Elle est ajoutée automatiquement, à côté de celle du patient, sur chaque consentement et chaque devis signé envoyé par le profil «{' '}
-          {profileName(activeProfile)} ».
+          Obligatoires, ils sont ajoutés automatiquement, à côté de la signature du patient, sur chaque consentement et chaque devis signé envoyé par le
+          profil « {profileName(activeProfile)} ».
         </p>
         <PractitionerSignature doctorId={doctorId} profile={activeProfile} onSaved={onSignatureSaved} />
       </div>
       )}
 
-      <div className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
-        <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
-          Vos formulaires de consentement
-        </h2>
-        <p className="mb-6 mt-[6px] max-w-[640px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-          Déposez le formulaire de votre cabinet (PDF) pour chaque acte. Le patient le lit avant de signer, et le PDF signé reprend votre formulaire
-          suivi de la page de signature. Sans formulaire, le PDF signé contient uniquement la page de signature.
-        </p>
-
-        <ul className="m-0 flex flex-col p-0" style={{ listStyle: 'none' }}>
-          {PROCEDURES.map((procedure) => {
-            const template = templates.find((t) => t.procedure === procedure)
-            return (
-              <li
-                key={procedure}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 py-[14px]"
-                style={{ borderTop: '1px solid var(--border-subtle)' }}
-              >
-                <div className="min-w-[200px] flex-1">
-                  <div className="text-[0.9375rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {procedure}
-                  </div>
-                  <div className="text-[12.5px]" style={{ color: template ? 'var(--status-signed-text)' : 'var(--text-muted)' }}>
-                    {loading ? '…' : template ? template.file_name : 'Aucun formulaire : page de signature seule'}
-                  </div>
-                </div>
-                {template && (
-                  <button
-                    type="button"
-                    onClick={() => open(template.file_path)}
-                    className="cursor-pointer text-[13px]"
-                    style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
-                  >
-                    Voir
-                  </button>
-                )}
-                <label
-                  className="cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[0.8125rem] font-semibold"
-                  style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)', opacity: busy === procedure ? 0.5 : 1 }}
+      {(['consent', 'postop'] as const).map((category) => (
+        <div key={category} className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
+          <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
+            {category === 'consent' ? 'Vos formulaires de consentement' : 'Vos conseils post-opératoires'}
+          </h2>
+          <p className="mb-6 mt-[6px] max-w-[640px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
+            {category === 'consent'
+              ? 'Déposez le formulaire de votre cabinet (PDF) pour chaque acte. Le patient le lit avant de signer, et le PDF signé reprend votre formulaire suivi de la page de signature. Sans formulaire, le PDF signé contient uniquement la page de signature.'
+              : 'Déposez vos consignes (PDF) pour chaque acte. Quand vous cochez « Conseils post-opératoires » dans un envoi, le document de l’acte est joint automatiquement. Le patient le lit et le télécharge, sans rien signer.'}
+          </p>
+          <ul className="m-0 flex flex-col p-0" style={{ listStyle: 'none' }}>
+            {PROCEDURES.map((procedure) => {
+              const template = templates.find((t) => (t.category ?? 'consent') === category && t.procedure === procedure)
+              const key = `${category}:${procedure}`
+              return (
+                <li
+                  key={procedure}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 py-[14px]"
+                  style={{ borderTop: '1px solid var(--border-subtle)' }}
                 >
-                  {busy === procedure ? 'Envoi…' : template ? 'Remplacer' : 'Importer un PDF'}
-                  <input
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    className="sr-only"
-                    disabled={busy !== null}
-                    aria-label={`Importer le formulaire PDF pour ${procedure}`}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) void upload(procedure, file)
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-                {template && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const { error } = await removeTemplate(template.id)
-                      showToast(error ?? 'Formulaire retiré', error ? 'warning' : 'success')
-                    }}
-                    className="cursor-pointer text-[13px]"
-                    style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+                  <div className="min-w-[200px] flex-1">
+                    <div className="text-[0.9375rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {procedure}
+                    </div>
+                    <div className="text-[12.5px]" style={{ color: template ? 'var(--status-signed-text)' : 'var(--text-muted)' }}>
+                      {loading
+                        ? '…'
+                        : template
+                          ? template.file_name
+                          : category === 'consent'
+                            ? 'Aucun formulaire : page de signature seule'
+                            : 'Aucun document : à choisir au moment de l’envoi'}
+                    </div>
+                  </div>
+                  {template && (
+                    <button
+                      type="button"
+                      onClick={() => open(template.file_path)}
+                      className="cursor-pointer text-[13px]"
+                      style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+                    >
+                      Voir
+                    </button>
+                  )}
+                  <label
+                    className="cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[0.8125rem] font-semibold"
+                    style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)', opacity: busy === key ? 0.5 : 1 }}
                   >
-                    Retirer
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      </div>
+                    {busy === key ? 'Envoi…' : template ? 'Remplacer' : 'Importer un PDF'}
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="sr-only"
+                      disabled={busy !== null}
+                      aria-label={`Importer le PDF pour ${procedure}`}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) void upload(procedure, file, category)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  {template && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const { error } = await removeTemplate(template.id)
+                        showToast(error ?? 'Document retiré', error ? 'warning' : 'success')
+                      }}
+                      className="cursor-pointer text-[13px]"
+                      style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}
+                    >
+                      Retirer
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
     </div>
   )
 }

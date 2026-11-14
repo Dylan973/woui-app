@@ -12,7 +12,7 @@ interface ExportRow {
   patient: string
   email: string
   procedure: string
-  kind: 'consent' | 'quote' | 'both'
+  kind: 'consent' | 'quote' | 'both' | 'postop'
   signed_at: string
   pdf_url: string | null
   quote_pdf_url: string | null
@@ -103,7 +103,7 @@ export async function exportYear(
         row.patient,
         row.email,
         row.procedure,
-        { consent: 'Consentement', quote: 'Devis', both: 'Consentement + devis' }[row.kind] ?? row.kind,
+        { consent: 'Consentement', quote: 'Devis', both: 'Consentement + devis', postop: 'Conseils post-opératoires' }[row.kind] ?? row.kind,
         practitionerName(row.practitioner_id),
         files.join(' | ') || 'PDF en préparation',
       ]

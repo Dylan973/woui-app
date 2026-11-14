@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { uploadPdf } from '../lib/documents'
 import type { ConsentTemplate } from '../types'
 
-/** Formulaires de consentement du cabinet : un PDF par acte, joint automatiquement aux envois. */
+/** Modèles du cabinet, un PDF par acte : formulaires de consentement et conseils post-opératoires, joints automatiquement aux envois. */
 export function useConsentTemplates(doctorId: string | null) {
   const [templates, setTemplates] = useState<ConsentTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,18 +24,18 @@ export function useConsentTemplates(doctorId: string | null) {
   }, [refetch])
 
   const saveTemplate = useCallback(
-    async (procedure: string, file: File) => {
+    async (procedure: string, file: File, category: 'consent' | 'postop' = 'consent') => {
       if (!doctorId) return { error: 'Compte non identifié.' }
       const uploaded = await uploadPdf(doctorId, 'modeles', file)
       if (uploaded.error || !uploaded.path) return { error: uploaded.error }
       // L'ancien fichier est conservé : il reste rattaché aux envois déjà partis.
       const changes = { file_path: uploaded.path, file_name: file.name.slice(0, 180) }
-      const existing = templates.find((t) => t.procedure === procedure)
+      const existing = templates.find((t) => (t.category ?? 'consent') === category && t.procedure === procedure)
       const { error } = existing
         ? await supabase.from('consent_templates').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', existing.id)
-        : await supabase.from('consent_templates').insert([{ doctor_id: doctorId, procedure, ...changes }])
+        : await supabase.from('consent_templates').insert([{ doctor_id: doctorId, procedure, category, ...changes }])
       if (!error) await refetch()
-      return { error: error ? 'Le formulaire n’a pas pu être enregistré.' : null }
+      return { error: error ? 'Le document n’a pas pu être enregistré.' : null }
     },
     [doctorId, refetch, templates]
   )

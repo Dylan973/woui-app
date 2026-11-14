@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { PatientSearch } from './PatientSearch'
 import { profileInitials, profileName } from '../../lib/profiles'
 import { ProfileAvatar } from '../profiles/ProfileAvatar'
+import { appointmentAlert, appointmentLabel, formatAppointment } from '../../lib/consentTiming'
 
 interface HeaderProps {
   doctor: Doctor
@@ -54,6 +55,14 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
         .filter((c) => c.status === 'signed' && c.signed_at)
         .sort((a, b) => new Date(b.signed_at!).getTime() - new Date(a.signed_at!).getTime())
         .slice(0, 4),
+    [consents]
+  )
+  // Alertes : rendez-vous dans 2 jours ou moins et rien n'est encore signé.
+  const alerts = useMemo(
+    () =>
+      consents
+        .filter((c) => appointmentAlert(c))
+        .sort((a, b) => new Date(a.appointment_at!).getTime() - new Date(b.appointment_at!).getTime()),
     [consents]
   )
   const lastSeenAt = useRef(Number(localStorage.getItem('woui_notifs_seen') || 0))
@@ -154,11 +163,21 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 8-3 8h18s-3-1-3-8" />
               <path d="M13.7 21a2 2 0 0 1-3.4 0" />
             </svg>
-            {unread > 0 && (
+            {alerts.length > 0 ? (
               <span
-                className="absolute right-[7px] top-[7px] h-[5px] w-[5px] rounded-full"
-                style={{ background: 'var(--accent)' }}
-              />
+                className="font-mono absolute -right-[6px] -top-[6px] flex h-[16px] min-w-[16px] items-center justify-center rounded-full px-[4px] text-[10px] font-semibold"
+                style={{ background: 'var(--danger-text)', color: '#ffffff' }}
+                aria-label={`${alerts.length} alerte${alerts.length > 1 ? 's' : ''}`}
+              >
+                {alerts.length}
+              </span>
+            ) : (
+              unread > 0 && (
+                <span
+                  className="absolute right-[7px] top-[7px] h-[5px] w-[5px] rounded-full"
+                  style={{ background: 'var(--accent)' }}
+                />
+              )
             )}
           </button>
           {notifOpen && (
@@ -166,6 +185,35 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
               className="absolute right-0 top-[calc(100%+10px)] z-[60] w-80 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-2"
               style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
+              {alerts.length > 0 && (
+                <>
+                  <div className="px-3 py-[10px]">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--danger-text)' }}>
+                      Rendez-vous sans signature
+                    </span>
+                  </div>
+                  {alerts.slice(0, 5).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setNotifOpen(false)
+                        navigate(`/dashboard?q=${encodeURIComponent(c.patient)}`)
+                      }}
+                      className="block w-full cursor-pointer px-3 py-[11px] text-left"
+                      style={{ background: 'var(--danger-bg)', border: 0, borderTop: '1px solid var(--danger-border)' }}
+                    >
+                      <div className="text-[13px] font-semibold" style={{ color: 'var(--danger-text)' }}>
+                        {c.patient} n’a rien signé, RDV {appointmentLabel(c.appointment_at!)}
+                      </div>
+                      <div className="font-mono mt-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                        {formatAppointment(c.appointment_at!)}
+                        {c.phone ? ` · ${c.phone}` : ''}
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
               <div className="flex items-center justify-between px-3 py-[10px_12px]">
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
                   Signatures récentes
@@ -245,7 +293,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
                 {multiProfile ? 'Changer de profil' : 'Profils praticiens'}
                 {!profilesEnabled && (
                   <span className="font-mono text-[9px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-accent)' }}>
-                    Clinique
+                    Pro
                   </span>
                 )}
               </button>

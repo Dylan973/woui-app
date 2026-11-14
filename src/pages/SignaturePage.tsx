@@ -228,6 +228,29 @@ function DocumentRow({
   )
 }
 
+function PostopCard({
+  name,
+  onOpen,
+  onDownload,
+  error,
+}: {
+  name: string | null | undefined
+  onOpen: () => void
+  onDownload: () => void
+  error: string | null
+}) {
+  return (
+    <Card>
+      <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>Conseils post-opératoires</div>
+      <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)', margin: '4px 0 14px' }}>
+        Les consignes de votre cabinet pour les jours qui suivent l’intervention. Rien à signer : gardez-les à portée de main.
+      </p>
+      <DocumentRow title={name ?? 'Conseils post-opératoires'} note="Document PDF, consultable à tout moment avec ce lien." onOpen={onOpen} onDownload={onDownload} />
+      {error && <p style={{ fontSize: 13, color: '#c0564c', marginTop: 10 }}>{error}</p>}
+    </Card>
+  )
+}
+
 function DownloadButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -354,7 +377,7 @@ export function SignaturePage() {
 
   // Les documents sont dans un stockage privé : le serveur remet un lien temporaire.
   // L'onglet est ouvert avant l'appel pour ne pas être bloqué par le navigateur.
-  const openDocument = async (doc: 'consent' | 'quote' | 'consent_signed' | 'quote_signed', download = false) => {
+  const openDocument = async (doc: 'consent' | 'quote' | 'postop' | 'consent_signed' | 'quote_signed', download = false) => {
     if (!token) return
     setDocError(null)
     const tab = download ? null : window.open('', '_blank')
@@ -372,7 +395,9 @@ export function SignaturePage() {
 
   const handleSign = async () => {
     const kindNow = consent?.kind ?? 'consent'
-    if (!token || (kindNow !== 'quote' && !confirmChecked) || (kindNow !== 'consent' && !quoteChecked)) return
+    const needsConsent = kindNow === 'consent' || kindNow === 'both'
+    const needsQuote = kindNow === 'quote' || kindNow === 'both'
+    if (!token || kindNow === 'postop' || (needsConsent && !confirmChecked) || (needsQuote && !quoteChecked)) return
     const dataUrl = signatureRef.current?.getDataUrl()
     if (!dataUrl) {
       setSignError('Veuillez signer dans le cadre prévu avant de valider.')
@@ -477,15 +502,47 @@ export function SignaturePage() {
             </p>
           </div>
         </Card>
+        {expired && consent?.has_postop && (
+          <div style={{ marginTop: 18 }}>
+            <PostopCard name={consent.postop_name} onOpen={() => openDocument('postop')} onDownload={() => openDocument('postop', true)} error={docError} />
+          </div>
+        )}
       </div>
     )
   }
 
   const alreadySigned = consent.status === 'signed'
   const kind = consent.kind ?? 'consent'
-  const withConsent = kind !== 'quote'
-  const withQuote = kind !== 'consent'
+  const withConsent = kind === 'consent' || kind === 'both'
+  const withQuote = kind === 'quote' || kind === 'both'
   const docLabel = kind === 'consent' ? 'Consentement' : kind === 'quote' ? 'Devis' : 'Documents'
+  const postopBlock = consent.has_postop ? (
+    <PostopCard name={consent.postop_name} onOpen={() => openDocument('postop')} onDownload={() => openDocument('postop', true)} error={docError} />
+  ) : null
+  const appointmentField = consent.appointment_at ? (
+    <Field label="Rendez-vous" value={`${formatLongDate(consent.appointment_at)} à ${formatHour(consent.appointment_at)}`} />
+  ) : null
+
+  // Conseils post-opératoires seuls : rien à signer, le patient les lit et les télécharge.
+  if (kind === 'postop') {
+    return shell(
+      <div className="flex flex-col gap-4" style={{ animation: 'wp-fade .3s both' }}>
+        <Card>
+          <StepHeading n={1}>Vos conseils post-opératoires</StepHeading>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16, marginTop: 18 }}>
+            <Field label="Patient" value={consent.patient} />
+            <Field label="Acte concerné" value={consent.procedure} />
+            {consent.practitioner_name && <Field label="Praticien" value={`Dr ${consent.practitioner_name}`} />}
+            {appointmentField}
+          </div>
+        </Card>
+        {postopBlock}
+        <p className="text-center" style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-4)' }}>
+          Une question après votre intervention ? Contactez {consent.cabinet_name ?? 'votre cabinet'}.
+        </p>
+      </div>
+    )
+  }
   const signedDownloads = (
     <div className="flex w-full flex-col gap-2" style={{ marginTop: 22 }}>
       {withConsent && (
@@ -569,6 +626,7 @@ export function SignaturePage() {
           </div>
         </Card>
         {replayBlock && <div style={{ marginTop: 18 }}>{replayBlock}</div>}
+        {postopBlock && <div style={{ marginTop: 18 }}>{postopBlock}</div>}
       </div>
     )
   }
@@ -634,6 +692,7 @@ export function SignaturePage() {
           </div>
         </Card>
         {replayBlock && <div style={{ marginTop: 18 }}>{replayBlock}</div>}
+        {postopBlock && <div style={{ marginTop: 18 }}>{postopBlock}</div>}
       </div>
     )
   }
@@ -666,6 +725,7 @@ export function SignaturePage() {
             <Field label={withConsent ? 'Acte concerné' : 'Document'} value={withConsent ? consent.procedure : (consent.quote_name ?? 'Devis')} />
             {consent.practitioner_name && <Field label="Praticien" value={`Dr ${consent.practitioner_name}`} />}
             <Field label="Envoyé le" value={formatLongDate(consent.sent_at)} />
+            {appointmentField}
           </div>
         </Card>
 
@@ -722,6 +782,8 @@ export function SignaturePage() {
             </div>
           </Card>
         )}
+
+        {postopBlock}
 
         {/* ── 3 — Signature ── */}
         <Card>

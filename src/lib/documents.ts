@@ -5,7 +5,7 @@ const MAX_PDF = 10 * 1024 * 1024
 /** Dépose un PDF dans le stockage privé du compte (`documents/<doctorId>/<dossier>/…`). */
 export async function uploadPdf(
   doctorId: string,
-  folder: 'devis' | 'modeles',
+  folder: 'devis' | 'modeles' | 'postop',
   file: File
 ): Promise<{ path: string | null; error: string | null }> {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')

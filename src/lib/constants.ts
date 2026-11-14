@@ -11,12 +11,13 @@ export const PLANS: Plan[] = [
     limits: { consents: 10, templates: 1 },
     features: [
       '10 consentements / mois',
+      '1 profil praticien',
       'Signature électronique',
       'Vos formulaires PDF par acte',
       'Archive annuelle des PDF signés',
       'Support email',
     ],
-    locked: ['Devis à signer en ligne', 'Code de profil', 'Profils praticiens', 'Logo du cabinet'],
+    locked: ['Devis à signer en ligne', 'Code de profil', '2e profil praticien', 'Logo du cabinet'],
   },
   {
     id: 'pro',
@@ -29,13 +30,14 @@ export const PLANS: Plan[] = [
     limits: { consents: 100, templates: 5 },
     features: [
       '100 consentements / mois',
+      '2 profils praticiens',
       'Devis à signer en ligne',
       'Vos formulaires PDF par acte',
       'Code de profil',
       'Archive annuelle des PDF signés',
       'Support prioritaire',
     ],
-    locked: ['Profils praticiens', 'Logo du cabinet'],
+    locked: ['3 praticiens et plus', 'Logo du cabinet'],
   },
   {
     id: 'clinic',
@@ -48,7 +50,8 @@ export const PLANS: Plan[] = [
     features: [
       'Consentements illimités',
       'Devis à signer en ligne',
-      'Un profil par praticien',
+      '4 profils praticiens compris',
+      'Praticien en plus : 40 € / mois',
       'Vue de tout le cabinet',
       'Logo du cabinet',
       'Archive annuelle des PDF signés',
@@ -59,14 +62,19 @@ export const PLANS: Plan[] = [
 ]
 
 export const PROCEDURES = [
-  'Extraction dentaire',
+  'Avulsion dentaire',
+  'Avulsion des dents de sagesse',
   'Implant dentaire',
+  'Sinus lift',
+  'Greffe osseuse',
   'Blanchiment',
   'Couronne céramique',
-  'Traitement de canal',
+  'Traitement endodontique',
   'Détartrage profond',
   'Chirurgie parodontale',
   'Bridge dentaire',
+  'Odontologie pédiatrique',
+  'Orthodontie / aligneur',
 ]
 
 export const STATUS_CONFIG: Record<ConsentStatus, { label: string; bg: string; fg: string; dot: string }> = {

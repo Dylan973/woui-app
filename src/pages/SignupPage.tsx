@@ -196,7 +196,7 @@ export function SignupPage() {
         {cabinet ? (
           <>
             <p className="mb-4 text-[13px] leading-[1.5]" style={{ color: 'var(--text-secondary)' }}>
-              L’offre Clinique est souscrite par le cabinet. Après l’inscription, chaque dentiste associé crée son profil (jusqu’à 3 compris).
+              L’offre Clinique est souscrite par le cabinet. Après l’inscription, chaque dentiste associé crée son profil (4 compris, 40 € par mois par praticien en plus).
             </p>
             <Input
               label="SIRET du cabinet"

@@ -5,6 +5,7 @@
 // - quote          : devis déposé par le cabinet (avant signature) — note l'ouverture du devis
 // - consent_signed : consentement signé
 // - quote_signed   : devis signé (à transmettre à la mutuelle)
+// - postop         : conseils post-opératoires (avant et après signature)
 // - logo           : logo du cabinet (offre Clinique)
 // Un lien expiré ne donne plus accès aux documents à signer ; les documents signés restent téléchargeables.
 //
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: consent } = await admin
       .from('consents')
-      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, pdf_url, quote_pdf_url, link_expires_at, doctors!inner(logo_path, plan)')
+      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, with_postop, postop_path, postop_opened_at, pdf_url, quote_pdf_url, link_expires_at, doctors!inner(logo_path, plan)')
       .eq('token', token)
       .maybeSingle()
     if (!consent) return json({ error: 'Lien invalide' }, 404)
@@ -53,10 +54,11 @@ Deno.serve(async (req) => {
     const signed = consent.status === 'signed'
     const expired = !signed && new Date(consent.link_expires_at).getTime() < Date.now()
     const doctor = consent.doctors as unknown as { logo_path: string | null; plan: string }
-    if (expired && doc !== 'logo') return json({ error: 'Lien expiré' }, 410)
+    if (expired && doc !== 'logo' && doc !== 'postop') return json({ error: 'Lien expiré' }, 410)
     const choice: Record<string, { bucket: string; path: string | null; name: string } | undefined> = {
-      consent: consent.kind !== 'quote' ? { bucket: 'documents', path: consent.template_path, name: 'consentement' } : undefined,
-      quote: consent.kind !== 'consent' ? { bucket: 'documents', path: consent.quote_path, name: 'devis' } : undefined,
+      consent: consent.kind === 'consent' || consent.kind === 'both' ? { bucket: 'documents', path: consent.template_path, name: 'consentement' } : undefined,
+      quote: consent.kind === 'quote' || consent.kind === 'both' ? { bucket: 'documents', path: consent.quote_path, name: 'devis' } : undefined,
+      postop: consent.with_postop ? { bucket: 'documents', path: consent.postop_path, name: 'conseils-post-operatoires' } : undefined,
       consent_signed: signed ? { bucket: 'consents', path: consent.pdf_url, name: 'consentement-signe' } : undefined,
       quote_signed: signed ? { bucket: 'consents', path: consent.quote_pdf_url, name: 'devis-signe' } : undefined,
       logo: doctor.plan === 'clinic' ? { bucket: 'documents', path: doctor.logo_path, name: 'logo' } : undefined,
@@ -74,6 +76,10 @@ Deno.serve(async (req) => {
     if (doc === 'quote' && !quoteOpenedAt) {
       quoteOpenedAt = new Date().toISOString()
       await admin.from('consents').update({ quote_opened_at: quoteOpenedAt }).eq('id', consent.id).is('quote_opened_at', null)
+    }
+
+    if (doc === 'postop' && !consent.postop_opened_at) {
+      await admin.from('consents').update({ postop_opened_at: new Date().toISOString() }).eq('id', consent.id).is('postop_opened_at', null)
     }
 
     return json({ url: data.signedUrl, quote_opened_at: quoteOpenedAt })

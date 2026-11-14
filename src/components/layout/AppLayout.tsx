@@ -53,7 +53,7 @@ export interface DashboardOutletContext {
   activeProfile: Profile
   /** false tant qu'un compte à plusieurs profils n'a pas choisi le sien. */
   profileChosen: boolean
-  /** Offre Clinique en cours : les profils praticiens sont utilisables. */
+  /** Offre Pro ou Clinique en cours : les profils praticiens sont utilisables. */
   profilesEnabled: boolean
   selectProfile: (profileId: string) => void
   practitionersApi: Pick<
@@ -62,9 +62,9 @@ export interface DashboardOutletContext {
   >
   /** Offre Clinique : compte du cabinet (le profil « main » est « Gestion du cabinet »). */
   isCabinet: boolean
-  /** Compte cabinet : nombre de praticiens possibles (3 + places payées en plus). */
+  /** Compte cabinet : profils praticiens possibles en plus du titulaire (Pro : 1 ; Clinique : 4 + places payées en plus). */
   practitionerPlaces: number
-  /** Après un changement de signature ou de tampon : recharge le profil et affiche le message. */
+  /** Après un changement de signature et de tampon : recharge le profil et affiche le message. */
   onSignatureSaved: (message: string) => Promise<void>
   /** Offre Clinique, profil du titulaire : il peut afficher les envois de tout le cabinet. */
   cabinetViewAvailable: boolean
@@ -221,7 +221,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   // Offre Clinique : configuration du cabinet (compte cabinet, code de gestion, au moins un praticien).
   const isCabinet = isCabinetAccount(doctor)
   const needsSetup =
-    profilesEnabled && (!isCabinet || !(pinApi.pins[MAIN_PROFILE]?.hasPin ?? false) || profiles.filter((p) => !p.isMain).length === 0)
+    doctor.plan === 'clinic' && profilesEnabled && (!isCabinet || !(pinApi.pins[MAIN_PROFILE]?.hasPin ?? false) || profiles.filter((p) => !p.isMain).length === 0)
   if (needsSetup || readSetupOpen()) {
     if (needsSetup) {
       try {
@@ -274,7 +274,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }
   const showClinicWelcome =
     !isCabinet && profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
-  // Première ouverture d'un profil : on propose d'enregistrer sa signature ou son tampon (toutes les offres).
+  // Première ouverture d'un profil : on propose d'enregistrer sa signature et son tampon (toutes les offres).
   const showSignatureSetup =
     activeProfile.kind !== 'cabinet' &&
     !onProfilesPage &&
@@ -454,7 +454,9 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
         />
       )}
 
-      {showClinicWelcome && <ClinicWelcomeModal onCreate={() => closeClinicWelcome(true)} onLater={() => closeClinicWelcome(false)} />}
+      {showClinicWelcome && (
+        <ClinicWelcomeModal plan={doctor.plan === 'pro' ? 'pro' : 'clinic'} onCreate={() => closeClinicWelcome(true)} onLater={() => closeClinicWelcome(false)} />
+      )}
 
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
     </div>

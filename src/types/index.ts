@@ -1,7 +1,7 @@
 export type PlanId = 'starter' | 'pro' | 'clinic'
 export type ConsentStatus = 'sent' | 'opened' | 'viewed' | 'signed'
 export type BillingInterval = 'monthly' | 'yearly'
-export type ConsentKind = 'consent' | 'quote' | 'both'
+export type ConsentKind = 'consent' | 'quote' | 'both' | 'postop'
 export type PlanStatus = 'incomplete' | 'trialing' | 'active' | 'past_due' | 'cancelled'
 
 export interface Doctor {
@@ -14,7 +14,7 @@ export interface Doctor {
   phone: string | null
   /** Chemin de la photo dans le stockage privé `avatars`. */
   photo_path?: string | null
-  /** Signature ou tampon du praticien (stockage privé `documents`). */
+  /** Signature et tampon du praticien (stockage privé `documents`). */
   signature_path?: string | null
   /** Numéro RPPS (11 chiffres) et résultat de sa vérification dans l'Annuaire Santé. */
   rpps?: string | null
@@ -28,7 +28,7 @@ export interface Doctor {
   /** Compte cabinet : SIRET (14 chiffres) et adresse. */
   siret?: string | null
   address?: string | null
-  /** Offre Clinique : praticiens payés en plus des 3 compris. */
+  /** Offre Clinique : praticiens payés en plus des 4 compris. */
   extra_seats?: number
   plan: PlanId
   plan_status: PlanStatus
@@ -78,6 +78,15 @@ export interface Consent {
   /** Le lien patient n'est plus valable après cette date (prolongée à chaque relance). */
   link_expires_at?: string
   last_sent_at?: string | null
+  /** Date du rendez-vous (facultative) : alerte si rien n'est signé 2 jours avant. */
+  appointment_at?: string | null
+  /** Téléphone du patient. */
+  phone?: string | null
+  /** Conseils post-opératoires joints (PDF, rien à signer). */
+  with_postop?: boolean
+  postop_path?: string | null
+  postop_name?: string | null
+  postop_opened_at?: string | null
   created_at: string
 }
 
@@ -103,12 +112,18 @@ export interface PatientConsent {
   practitioner_name: string | null
   /** Logo du cabinet disponible (offre Clinique). */
   has_logo: boolean
+  /** Conseils post-opératoires joints à l'envoi. */
+  has_postop?: boolean
+  postop_name?: string | null
+  appointment_at?: string | null
 }
 
 /** Formulaire de consentement du cabinet (PDF) pour un acte. */
 export interface ConsentTemplate {
   id: string
   doctor_id: string
+  /** 'consent' : formulaire de consentement ; 'postop' : conseils post-opératoires. */
+  category: 'consent' | 'postop'
   procedure: string
   file_path: string
   file_name: string
@@ -179,8 +194,17 @@ export interface Plan {
 export interface NewConsentForm {
   patient: string
   email: string
+  /** Téléphone du patient. */
+  phone: string
   procedure: string
-  kind: ConsentKind
-  /** Devis au format PDF (envois « devis » et « les deux »). */
+  /** Contenu de l'envoi (choix multiples). */
+  withConsent: boolean
+  withQuote: boolean
+  withPostop: boolean
+  /** Date du rendez-vous, au format du champ datetime-local (facultative). */
+  appointmentAt: string
+  /** Devis au format PDF. */
   quoteFile: File | null
+  /** Conseils post-opératoires (PDF) ; sinon le modèle du cabinet pour cet acte. */
+  postopFile: File | null
 }

@@ -306,7 +306,7 @@ export function SettingsPage() {
                 className="font-mono rounded-[3px] px-2 py-[3px] text-[10px] uppercase tracking-[0.1em]"
                 style={{ background: 'var(--surface-card-alt)', color: 'var(--text-accent)' }}
               >
-                Abonnement Clinique
+                Abonnements Pro et Clinique
               </span>
             )}
           </div>
@@ -314,8 +314,8 @@ export function SettingsPage() {
             {isCabinet
               ? `${profiles.length - 1} praticien${profiles.length - 1 > 1 ? 's' : ''} sur ${practitionerPlaces} possibles. Chaque praticien ouvre son profil à l'ouverture de Woui et retrouve ses propres envois.`
               : profilesEnabled
-              ? `Votre cabinet compte ${profiles.length} profil${profiles.length > 1 ? 's' : ''}. Chaque praticien choisit le sien à l'ouverture de Woui et retrouve ses propres consentements.`
-              : 'Avec l’abonnement Clinique, chaque praticien du cabinet a son profil : son nom sur les emails et les consentements signés, et ses propres envois.'}
+              ? `${profiles.length} profil${profiles.length > 1 ? 's' : ''} sur ${practitionerPlaces + 1} possibles avec l’offre Pro. Chaque praticien choisit le sien à l'ouverture de Woui et retrouve ses propres consentements.`
+              : 'L’offre Starter comprend un profil praticien. Avec l’offre Pro (2 profils) ou Clinique (4 praticiens), chaque praticien a son profil : son nom sur les emails et les documents signés, et ses propres envois.'}
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="primary" onClick={() => navigate(profilesEnabled ? '/profiles?gerer=1' : '/profiles')}>
@@ -323,7 +323,7 @@ export function SettingsPage() {
             </Button>
             {!profilesEnabled && (
               <Button variant="ghost" onClick={() => setTab('plan')}>
-                Voir l'offre Clinique
+                Voir les offres
               </Button>
             )}
           </div>

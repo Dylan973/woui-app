@@ -5,17 +5,24 @@ export const MAIN_PROFILE = 'main'
 
 export const PROFILE_COLORS = ['#6c5ce7', '#0ea5e9', '#3fc79a', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#64748b']
 
-/** Les profils praticiens sont réservés à l'offre Clinique en cours. */
+/**
+ * Profils praticiens : Starter 1 (le titulaire seul), Pro 2 (le titulaire + 1 praticien),
+ * Clinique 4 praticiens compris + places supplémentaires.
+ */
 export const canUseProfiles = (doctor: Doctor) =>
-  doctor.plan === 'clinic' && (doctor.plan_status === 'active' || doctor.plan_status === 'trialing')
+  (doctor.plan === 'pro' || doctor.plan === 'clinic') && (doctor.plan_status === 'active' || doctor.plan_status === 'trialing')
 
 /** Offre Clinique : le compte est celui du cabinet ; les dentistes associés y ont leur profil. */
 export const isCabinetAccount = (doctor: Doctor) => doctor.plan === 'clinic' && doctor.account_type === 'cabinet'
 
 /** Praticiens compris dans l'offre Clinique, puis places payées en plus. */
-export const INCLUDED_PRACTITIONERS = 3
+export const INCLUDED_PRACTITIONERS = 4
 export const EXTRA_SEAT_PRICE = 40
-export const practitionerPlaces = (doctor: Doctor) => INCLUDED_PRACTITIONERS + Math.max(doctor.extra_seats ?? 0, 0)
+/** Profils praticiens possibles en plus du titulaire (Pro) ou de « Gestion du cabinet » (Clinique). */
+export const practitionerPlaces = (doctor: Doctor) =>
+  doctor.plan === 'clinic' ? INCLUDED_PRACTITIONERS + Math.max(doctor.extra_seats ?? 0, 0) : doctor.plan === 'pro' ? 1 : 0
+/** Nombre total de profils de l'offre, titulaire compris (hors « Gestion du cabinet »). */
+export const PLAN_PROFILES: Record<Doctor['plan'], number> = { starter: 1, pro: 2, clinic: INCLUDED_PRACTITIONERS }
 
 /** Fonctions proposées pour un praticien (saisie libre possible). */
 export const PRACTITIONER_FUNCTIONS = [

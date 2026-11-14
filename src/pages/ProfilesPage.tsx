@@ -156,7 +156,8 @@ export function ProfilesPage() {
     if (cabinet && practitionerCount >= places) {
       setSeatError(null)
       setSeatModal(true)
-    } else setEditing('new')
+    } else if (!cabinet && practitionerCount >= places) setUpsell(true)
+    else setEditing('new')
   }
 
   const onTile = (profile: Profile) => {
@@ -200,7 +201,7 @@ export function ProfilesPage() {
             ? 'Chaque praticien ouvre son profil. « Gestion du cabinet » regroupe l’abonnement, l’équipe et l’activité de tout le cabinet.'
             : profilesEnabled
             ? 'Choisissez votre profil : chaque praticien retrouve ses propres consentements.'
-            : 'Votre cabinet compte plusieurs praticiens ? Donnez un profil à chacun avec l’abonnement Clinique.'}
+            : 'L’offre Starter comprend un profil praticien. Pour un second praticien, passez à l’offre Pro (2 profils) ou Clinique (4 praticiens).'}
       </p>
 
       <div className="mt-[clamp(2rem,6vh,56px)] flex max-w-[900px] flex-wrap justify-center gap-[clamp(1rem,3vw,32px)]">
@@ -273,11 +274,9 @@ export function ProfilesPage() {
               <span className="block text-[0.9375rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
                 Ajouter un praticien
               </span>
-              {cabinet && (
-                <span className="block text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                  {practitionerCount} / {places} profils
-                </span>
-              )}
+              <span className="block text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                {cabinet ? `${practitionerCount} / ${places} praticiens` : `${practitionerCount + 1} / ${places + 1} profils`}
+              </span>
             </span>
           </button>
         ) : (
@@ -286,7 +285,7 @@ export function ProfilesPage() {
             onClick={() => setUpsell(true)}
             className="flex cursor-pointer flex-col items-center gap-3"
             style={{ background: 'none', border: 0 }}
-            aria-label="Ajouter un profil : disponible uniquement avec l'abonnement Clinique"
+            aria-label="Ajouter un profil : disponible avec les abonnements Pro et Clinique"
           >
             <span
               className={`${TILE} flex items-center justify-center opacity-55`}
@@ -302,7 +301,7 @@ export function ProfilesPage() {
                 Ajouter un profil
               </span>
               <span className="block max-w-[150px] text-[12px] leading-[1.35]" style={{ color: 'var(--text-accent)' }}>
-                Disponible uniquement avec l'abonnement Clinique
+                Starter : 1 profil. Pro : 2 profils
               </span>
             </span>
           </button>
@@ -457,7 +456,7 @@ export function ProfilesPage() {
         </Modal>
       )}
 
-      {upsell && <ClinicUpsellModal onClose={() => setUpsell(false)} onSeePlans={() => navigate('/settings?tab=plan')} />}
+      {upsell && <ClinicUpsellModal plan={doctor.plan} onClose={() => setUpsell(false)} onSeePlans={() => navigate('/settings?tab=plan')} />}
     </div>
   )
 }

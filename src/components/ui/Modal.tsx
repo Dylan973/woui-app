@@ -16,7 +16,7 @@ export function Modal({ onClose, children, maxWidth = 460, zIndex = 500 }: Modal
       onClick={onClose}
     >
       <div
-        className="w-full animate-[nb-rise_0.24s_var(--ease-standard)_both] p-9"
+        className="max-h-[calc(100dvh-3rem)] w-full animate-[nb-rise_0.24s_var(--ease-standard)_both] overflow-y-auto overscroll-contain p-[clamp(1.5rem,4vw,2.25rem)]"
         style={{
           background: 'var(--surface-card)',
           border: '1px solid var(--border-default)',

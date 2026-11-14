@@ -43,7 +43,7 @@ function esc(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
-type Kind = 'consent' | 'quote' | 'both'
+type Kind = 'consent' | 'quote' | 'both' | 'postop'
 
 // Aucun détail médical ni montant dans l'email : tout se lit sur la page sécurisée.
 const INTRO: Record<Kind, string> = {
@@ -51,15 +51,41 @@ const INTRO: Record<Kind, string> = {
     "Avant votre rendez-vous, votre praticien vous demande de prendre connaissance d'une courte vidéo d'information, puis de signer votre consentement en ligne.",
   quote: 'Votre praticien vous transmet un devis. Vous pouvez le consulter, le télécharger pour votre mutuelle, puis le signer en ligne.',
   both: "Avant votre rendez-vous, votre praticien vous transmet une courte vidéo d'information, votre consentement et un devis. Vous pouvez télécharger le devis pour votre mutuelle, puis signer vos documents en ligne.",
+  postop: 'Votre praticien vous transmet vos conseils post-opératoires. Lisez-les et gardez-les à portée de main après votre intervention.',
 }
-const BUTTON: Record<Kind, string> = { consent: 'Voir la vidéo et signer', quote: 'Consulter le devis', both: 'Ouvrir mes documents' }
+const POSTOP_EXTRA = ' Vos conseils post-opératoires sont aussi disponibles sur la même page.'
+const BUTTON: Record<Kind, string> = {
+  consent: 'Voir la vidéo et signer',
+  quote: 'Consulter le devis',
+  both: 'Ouvrir mes documents',
+  postop: 'Lire mes conseils',
+}
 const SUBJECT: Record<Kind, string> = {
   consent: 'document à signer avant votre rendez-vous',
   quote: 'votre devis à consulter et à signer',
   both: 'documents à signer avant votre rendez-vous',
+  postop: 'vos conseils après votre rendez-vous',
 }
 
-function renderEmail(p: { patient: string; doctorName: string; specialty: string; link: string; kind: Kind; cabinet: string | null; logoUrl: string | null }) {
+/** « mardi 18 novembre à 09:30 » (heure de Paris). */
+function formatAppointment(iso: string): string {
+  const d = new Date(iso)
+  const day = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' })
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+  return `${day} à ${time}`
+}
+
+function renderEmail(p: {
+  patient: string
+  doctorName: string
+  specialty: string
+  link: string
+  kind: Kind
+  withPostop: boolean
+  appointment: string | null
+  cabinet: string | null
+  logoUrl: string | null
+}) {
   return `<!doctype html>
 <html lang="fr"><body style="margin:0;background:#f4f5fa;font-family:Poppins,Helvetica,Arial,sans-serif;color:#171734">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5fa;padding:32px 16px">
@@ -72,8 +98,13 @@ function renderEmail(p: { patient: string; doctorName: string; specialty: string
           <div style="font-size:13px;color:rgba(23,23,52,.55);margin-top:2px">${esc(p.specialty)}</div>
           <h1 style="font-size:22px;line-height:1.3;margin:22px 0 0;font-weight:600">Bonjour ${esc(p.patient)},</h1>
           <p style="font-size:15px;line-height:1.6;color:rgba(23,23,52,.72);margin:12px 0 0">
-            ${esc(INTRO[p.kind])}
+            ${esc(INTRO[p.kind] + (p.withPostop && p.kind !== 'postop' ? POSTOP_EXTRA : ''))}
           </p>
+          ${
+            p.appointment
+              ? `<p style="font-size:14.5px;line-height:1.6;color:#171734;margin:14px 0 0;padding:12px 14px;background:#f4f5fa;border-radius:10px">Votre rendez-vous : <strong>${esc(p.appointment)}</strong>${p.kind !== 'postop' ? '<br><span style="color:rgba(23,23,52,.6);font-size:13px">Merci de signer avant cette date.</span>' : ''}</p>`
+              : ''
+          }
         </td></tr>
         <tr><td style="padding:24px 32px 8px" align="left">
           <a href="${esc(p.link)}" style="display:inline-block;background:#6c5ce7;color:#ffffff;padding:14px 26px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px">${esc(BUTTON[p.kind])}</a>
@@ -104,7 +135,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: consent, error: consentError } = await admin
       .from('consents')
-      .select('id, doctor_id, patient, email, token, status, kind, last_sent_at, doctors!inner(user_id, first_name, last_name, specialty, cabinet_name, logo_path, plan), practitioners(first_name, last_name, specialty)')
+      .select('id, doctor_id, patient, email, token, status, kind, with_postop, appointment_at, last_sent_at, doctors!inner(user_id, first_name, last_name, specialty, cabinet_name, logo_path, plan), practitioners(first_name, last_name, specialty)')
       .eq('id', consentId)
       .maybeSingle()
 
@@ -144,13 +175,15 @@ Deno.serve(async (req: Request) => {
       const { data: signedLogo } = await admin.storage.from('documents').createSignedUrl(doctor.logo_path, 30 * 24 * 3600)
       logoUrl = signedLogo?.signedUrl ?? null
     }
-    const kind: Kind = consent.kind === 'quote' || consent.kind === 'both' ? consent.kind : 'consent'
+    const kind: Kind = consent.kind === 'quote' || consent.kind === 'both' || consent.kind === 'postop' ? consent.kind : 'consent'
     const html = renderEmail({
       patient: consent.patient,
       doctorName: doctorName === 'Dr' ? 'Votre cabinet dentaire' : doctorName,
       specialty: sender.specialty ?? '',
       link: `${APP_URL}/sign/${encodeURIComponent(consent.token)}`,
       kind,
+      withPostop: Boolean(consent.with_postop),
+      appointment: consent.appointment_at && new Date(consent.appointment_at).getTime() > Date.now() ? formatAppointment(consent.appointment_at) : null,
       cabinet: doctor.cabinet_name,
       logoUrl,
     })

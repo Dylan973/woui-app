@@ -297,7 +297,7 @@ function TeamStep({
                 </div>
                 {p.signature_path ? (
                   <span className="text-[12.5px]" style={{ color: 'var(--status-signed-text)' }}>
-                    ✓ Signature
+                    ✓ Signature et tampon
                   </span>
                 ) : (
                   <button
@@ -306,7 +306,7 @@ function TeamStep({
                     className="cursor-pointer text-[13px] font-semibold"
                     style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
                   >
-                    Ajouter sa signature
+                    Importer signature et tampon
                   </button>
                 )}
               </li>
@@ -316,7 +316,7 @@ function TeamStep({
 
         {signingProfile && (
           <div className="mb-5 p-4" style={{ background: 'var(--surface-card-alt)', borderRadius: 6 }}>
-            <div className="mb-2 font-semibold">Signature ou tampon de {profileName(signingProfile)}</div>
+            <div className="mb-2 font-semibold">Signature et tampon de {profileName(signingProfile)}</div>
             <PractitionerSignature
               doctorId={doctor.id}
               profile={signingProfile}

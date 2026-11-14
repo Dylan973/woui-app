@@ -14,7 +14,7 @@ interface TeamSeatsProps {
   showToast: (msg: string, type?: ToastType) => void
 }
 
-/** Offre Clinique : 3 praticiens compris, places supplémentaires payantes. */
+/** Offre Clinique : 4 praticiens compris, places supplémentaires payantes. */
 export function TeamSeats({ doctor, practitionerCount, canManage, refetchDoctor, showToast }: TeamSeatsProps) {
   const [busy, setBusy] = useState<'add' | 'remove' | null>(null)
   const extra = Math.max(doctor.extra_seats ?? 0, 0)
