@@ -5,6 +5,7 @@ import { WOUI_LOGO_URL } from '../../lib/constants'
 import { Button } from '../ui/Button'
 import { PatientSearch } from './PatientSearch'
 import { profileInitials, profileName } from '../../lib/profiles'
+import { ProfileAvatar } from '../profiles/ProfileAvatar'
 
 interface HeaderProps {
   doctor: Doctor
@@ -12,6 +13,8 @@ interface HeaderProps {
   activeProfile: Profile
   profilesEnabled: boolean
   multiProfile: boolean
+  /** Gestion du cabinet : pas d'envoi (les envois se font depuis le profil d'un praticien). */
+  canSend?: boolean
   onOpenSendModal: () => void
   onSignOut: () => void
 }
@@ -34,7 +37,7 @@ function useTheme() {
 const NAV_ITEM =
   'border-0 bg-transparent px-4 py-2 rounded-[3px] cursor-pointer text-[0.8125rem] tracking-[0.06em] whitespace-nowrap transition-colors'
 
-export function Header({ consents, activeProfile, profilesEnabled, multiProfile, onOpenSendModal, onSignOut }: HeaderProps) {
+export function Header({ consents, activeProfile, profilesEnabled, multiProfile, canSend = true, onOpenSendModal, onSignOut }: HeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggle } = useTheme()
@@ -191,7 +194,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
           )}
         </div>
 
-        {isDashboard && (
+        {isDashboard && canSend && (
           <Button variant="primary" size="sm" onClick={onOpenSendModal}>
             <span className="hidden sm:inline">+ Nouveau consentement</span>
             <span className="sm:hidden">+ Nouveau</span>
@@ -210,7 +213,9 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
                 : { background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }
             }
           >
-            {activeProfile.photoUrl ? (
+            {activeProfile.kind === 'cabinet' ? (
+              <ProfileAvatar profile={activeProfile} className="h-full w-full" />
+            ) : activeProfile.photoUrl ? (
               <img src={activeProfile.photoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               profileInitials(activeProfile)
@@ -226,7 +231,7 @@ export function Header({ consents, activeProfile, profilesEnabled, multiProfile,
                   {profileName(activeProfile)}
                 </div>
                 <div className="truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>
-                  {activeProfile.specialty}
+                  {activeProfile.kind === 'cabinet' ? activeProfile.first_name || 'Abonnement et équipe' : activeProfile.specialty}
                 </div>
               </div>
               <button

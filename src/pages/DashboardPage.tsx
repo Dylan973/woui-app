@@ -62,7 +62,7 @@ function median(values: number[]): number | null {
 const RESEND_DELAY_MS = 10 * 60 * 1000
 
 export function DashboardPage() {
-  const { consents: scoped, consentsLoading, resendConsent, showToast, profiles, cabinetViewAvailable, cabinetView, setCabinetView, profileOf } =
+  const { consents: scoped, consentsLoading, resendConsent, showToast, profiles, cabinetViewAvailable, cabinetView, setCabinetView, profileOf, isCabinet, activeProfile } =
     useOutletContext<DashboardOutletContext>()
   // Vue « Tout le cabinet » (titulaire, offre Clinique) : filtre optionnel par praticien.
   const [practitionerFilter, setPractitionerFilter] = useState<string>('all')
@@ -175,6 +175,7 @@ export function DashboardPage() {
     <div style={{ animation: 'nb-rise 0.5s var(--ease-standard) both' }}>
       {cabinetViewAvailable && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
+          {!isCabinet && (
           <div className="flex gap-1" role="group" aria-label="Envois affichés">
             {[
               [false, 'Mes envois'],
@@ -202,6 +203,7 @@ export function DashboardPage() {
               )
             })}
           </div>
+          )}
           {cabinetView && (
             <select
               aria-label="Praticien"
@@ -211,11 +213,13 @@ export function DashboardPage() {
               style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
               <option value="all">Tous les praticiens</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {profileName(p)}
-                </option>
-              ))}
+              {profiles
+                .filter((p) => p.kind !== 'cabinet')
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {profileName(p)}
+                  </option>
+                ))}
             </select>
           )}
         </div>
@@ -357,7 +361,7 @@ export function DashboardPage() {
           className="p-12 text-center"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-muted)' }}
         >
-          {query ? 'Aucun patient ne correspond à cette recherche.' : 'Aucun consentement trouvé. Cliquez sur « + Nouveau consentement » pour commencer.'}
+          {query ? 'Aucun patient ne correspond à cette recherche.' : activeProfile.kind === 'cabinet' ? 'Aucun envoi pour le moment. Les envois de tous les praticiens du cabinet apparaîtront ici.' : 'Aucun consentement trouvé. Cliquez sur « + Nouveau consentement » pour commencer.'}
         </div>
       ) : (
         <div className="grid gap-[18px] md:grid-cols-2">
@@ -400,7 +404,7 @@ export function DashboardPage() {
                       {cabinetView && (
                         <div className="mt-[6px] flex items-center gap-[6px] text-[12px]" style={{ color: 'var(--text-secondary)' }}>
                           <span className="h-[8px] w-[8px] rounded-full" style={{ background: profileOf(c.practitioner_id).color }} />
-                          {profileName(profileOf(c.practitioner_id))}
+                          {profileOf(c.practitioner_id).kind === 'cabinet' ? 'Praticien retiré' : profileName(profileOf(c.practitioner_id))}
                         </div>
                       )}
                     </div>

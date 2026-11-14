@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { writeCabinetSession } from '../lib/profiles'
 
 export interface PinState {
   hasPin: boolean
@@ -12,6 +13,8 @@ const MESSAGES: Record<string, string> = {
   wrong_old: 'Ancien code incorrect.',
   locked: 'Trop d’essais. Réessayez dans 5 minutes.',
   invalid: 'Le code doit contenir 4 chiffres.',
+  required: 'Le code de Gestion du cabinet est obligatoire : vous pouvez le changer, pas le supprimer.',
+  no_pin: 'Aucun code n’est encore défini pour Gestion du cabinet.',
 }
 
 /** Traduit la réponse d'une fonction de code (« ok », « wrong »…) en message, ou null si tout est bon. */
@@ -53,6 +56,22 @@ export function useProfilePins(doctorId: string | null) {
     const { data, error } = await supabase.rpc('verify_profile_pin', { p_profile: profileId, p_pin: pin })
     return toMessage(data, error)
   }, [])
+
+  /** Compte cabinet : vérifie le code de « Gestion du cabinet » et garde la session ouverte (12 h). */
+  const openCabinetSession = useCallback(
+    async (pin: string) => {
+      if (!doctorId) return 'Connexion requise.'
+      const { data, error } = await supabase.rpc('open_cabinet_session', { p_pin: pin })
+      if (error) return error.message
+      const value = String(data ?? '')
+      if (value.startsWith('ok:')) {
+        writeCabinetSession(doctorId, value.slice(3))
+        return null
+      }
+      return MESSAGES[value] ?? 'Action impossible pour le moment.'
+    },
+    [doctorId]
+  )
 
   const setPin = useCallback(
     async (profileId: string, pin: string, oldPin?: string) => {
@@ -100,5 +119,5 @@ export function useProfilePins(doctorId: string | null) {
     [refetch]
   )
 
-  return { pins, loading, available, refetch, verifyPin, setPin, removePin, markOffered, requestReset, confirmReset }
+  return { pins, loading, available, refetch, verifyPin, setPin, removePin, markOffered, requestReset, confirmReset, openCabinetSession }
 }

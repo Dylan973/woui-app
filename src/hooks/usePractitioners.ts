@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { callFunction } from '../lib/functions'
 import type { Practitioner, ProfileForm } from '../types'
 
 interface UsePractitionersResult {
@@ -11,6 +12,8 @@ interface UsePractitionersResult {
   setPractitionerPhoto: (id: string, photoPath: string | null) => Promise<{ error: string | null }>
   updatePractitioner: (id: string, form: ProfileForm) => Promise<{ error: string | null }>
   archivePractitioner: (id: string) => Promise<{ error: string | null }>
+  /** Enregistre et vérifie le RPPS d'un praticien dans l'Annuaire Santé. */
+  verifyRpps: (id: string, rpps: string) => Promise<{ error: string | null; status?: string; identity?: string | null }>
 }
 
 /**
@@ -95,5 +98,18 @@ export function usePractitioners(doctorId: string | null): UsePractitionersResul
     [fetchAll]
   )
 
-  return { practitioners, loading, refetch: fetchAll, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto }
+  const verifyRpps = useCallback(
+    async (id: string, rpps: string) => {
+      const { data, error } = await callFunction<{ status?: string; identity?: string | null }>(
+        'verify-rpps',
+        { practitionerId: id, rpps: rpps.replace(/\s/g, '') },
+        { fallback: 'Le numéro RPPS n’a pas pu être enregistré. Réessayez.' }
+      )
+      await fetchAll()
+      return { error, status: data?.status, identity: data?.identity ?? null }
+    },
+    [fetchAll]
+  )
+
+  return { practitioners, loading, refetch: fetchAll, createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto, verifyRpps }
 }

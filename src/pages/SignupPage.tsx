@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { LEGAL_URLS, PLANS, WOUI_LOGO_URL } from '../lib/constants'
 import { startCheckout, TRIAL_DAYS } from '../lib/billing'
+import { checkSiret, SiretNote } from '../components/profiles/CabinetSetup'
 import type { BillingInterval, PlanId } from '../types'
 
 const isPlanId = (v: string | null): v is PlanId => v === 'starter' || v === 'pro' || v === 'clinic'
@@ -21,7 +22,19 @@ export function SignupPage() {
   const initialPlan = params.get('plan')
   const [plan, setPlan] = useState<PlanId>(isPlanId(initialPlan) ? initialPlan : 'pro')
   const [interval, setBillingInterval] = useState<BillingInterval>(params.get('interval') === 'yearly' ? 'yearly' : 'monthly')
-  const [form, setForm] = useState({ firstName: '', lastName: '', rpps: '', email: '', password: '' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', rpps: '', email: '', password: '', cabinetName: '', siret: '', address: '', phone: '' })
+  // Offre Clinique : le compte est celui du cabinet (SIRET) ; les praticiens créent ensuite leur profil.
+  const cabinet = plan === 'clinic'
+  const [siretCheck, setSiretCheck] = useState<Awaited<ReturnType<typeof checkSiret>> | null>(null)
+  const onSiret = async (value: string) => {
+    set('siret', value)
+    setSiretCheck(null)
+    if (value.length !== 14) return
+    const result = await checkSiret(value)
+    setSiretCheck(result)
+    if (result.found && result.name) setForm((f) => ({ ...f, cabinetName: f.cabinetName || result.name || '' }))
+    if (result.found && result.address) setForm((f) => ({ ...f, address: f.address || result.address || '' }))
+  }
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +46,20 @@ export function SignupPage() {
     e.preventDefault()
     setError(null)
     const rpps = form.rpps.replace(/\s/g, '')
-    if (!/^[0-9]{11}$/.test(rpps)) {
+    if (cabinet) {
+      if (form.siret.length !== 14 || siretCheck?.valid === false) {
+        setError('Indiquez le numéro SIRET du cabinet (14 chiffres).')
+        return
+      }
+      if (siretCheck?.found === false) {
+        setError('Ce SIRET est introuvable dans l’annuaire des entreprises. Vérifiez le numéro.')
+        return
+      }
+      if (!form.cabinetName.trim()) {
+        setError('Indiquez le nom du cabinet.')
+        return
+      }
+    } else if (!/^[0-9]{11}$/.test(rpps)) {
       setError('Le numéro RPPS contient 11 chiffres. Il figure sur votre carte CPS et sur vos ordonnances.')
       return
     }
@@ -51,7 +77,16 @@ export function SignupPage() {
       password: form.password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), rpps, plan, interval },
+        data: cabinet
+          ? {
+              plan,
+              interval,
+              cabinet_name: form.cabinetName.trim(),
+              siret: form.siret,
+              address: form.address.trim(),
+              phone: form.phone.trim(),
+            }
+          : { first_name: form.firstName.trim(), last_name: form.lastName.trim(), rpps, plan, interval },
       },
     })
     if (signUpError) {
@@ -158,26 +193,49 @@ export function SignupPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-x-3">
-          <Input label="Prénom" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} required autoComplete="given-name" />
-          <Input label="Nom" value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required autoComplete="family-name" />
-        </div>
-        <Input
-          label="Numéro RPPS (11 chiffres)"
-          value={form.rpps}
-          onChange={(e) => set('rpps', e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
-          maxLength={12}
-          placeholder="10001234567"
-          inputMode="numeric"
-          required
-          autoComplete="off"
-        />
+        {cabinet ? (
+          <>
+            <p className="mb-4 text-[13px] leading-[1.5]" style={{ color: 'var(--text-secondary)' }}>
+              L’offre Clinique est souscrite par le cabinet. Après l’inscription, chaque dentiste associé crée son profil (jusqu’à 3 compris).
+            </p>
+            <Input
+              label="SIRET du cabinet"
+              value={form.siret}
+              onChange={(e) => void onSiret(e.target.value.replace(/[^0-9]/g, '').slice(0, 14))}
+              inputMode="numeric"
+              placeholder="14 chiffres"
+              required
+              autoComplete="off"
+            />
+            <SiretNote check={siretCheck} length={form.siret.length} />
+            <Input label="Nom du cabinet" value={form.cabinetName} onChange={(e) => set('cabinetName', e.target.value)} maxLength={120} required />
+            <Input label="Adresse du cabinet" value={form.address} onChange={(e) => set('address', e.target.value)} maxLength={240} autoComplete="street-address" />
+            <Input label="Téléphone du cabinet" value={form.phone} onChange={(e) => set('phone', e.target.value)} autoComplete="tel" />
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-x-3">
+              <Input label="Prénom" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} required autoComplete="given-name" />
+              <Input label="Nom" value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required autoComplete="family-name" />
+            </div>
+            <Input
+              label="Numéro RPPS (11 chiffres)"
+              value={form.rpps}
+              onChange={(e) => set('rpps', e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+              maxLength={12}
+              placeholder="10001234567"
+              inputMode="numeric"
+              required
+              autoComplete="off"
+            />
+          </>
+        )}
         <Input
           label="Email professionnel"
           type="email"
           value={form.email}
           onChange={(e) => set('email', e.target.value)}
-          placeholder="dr@cabinet.fr"
+          placeholder={cabinet ? 'contact@cabinet.fr' : 'dr@cabinet.fr'}
           required
           autoComplete="email"
         />

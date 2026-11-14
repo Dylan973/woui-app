@@ -3,7 +3,8 @@ import { Modal } from '../ui/Modal'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { ProfileAvatar } from './ProfileAvatar'
-import { PROFILE_COLORS } from '../../lib/profiles'
+import { PRACTITIONER_FUNCTIONS, PROFILE_COLORS } from '../../lib/profiles'
+import { RppsBadge } from './RppsBadge'
 import type { Profile, ProfileForm } from '../../types'
 
 interface ProfileEditModalProps {
@@ -14,14 +15,17 @@ interface ProfileEditModalProps {
   onSave: (form: ProfileForm, photo: File | 'remove' | null) => Promise<{ error: string | null }>
   /** Retrait du profil (absent pour le titulaire du compte et à la création). */
   onArchive?: () => Promise<{ error: string | null }>
+  /** Offre Clinique (compte cabinet) : numéro RPPS du praticien, obligatoire. */
+  withRpps?: boolean
 }
 
-export function ProfileEditModal({ profile, onClose, onSave, onArchive }: ProfileEditModalProps) {
+export function ProfileEditModal({ profile, onClose, onSave, onArchive, withRpps = false }: ProfileEditModalProps) {
   const [form, setForm] = useState<ProfileForm>({
     first_name: profile?.first_name ?? '',
     last_name: profile?.last_name ?? '',
     specialty: profile?.specialty || 'Chirurgien-dentiste',
     color: profile?.color ?? PROFILE_COLORS[1],
+    rpps: profile?.rpps ?? '',
   })
   const [photo, setPhoto] = useState<File | 'remove' | null>(null)
   const preview = useMemo(() => (photo instanceof File ? URL.createObjectURL(photo) : null), [photo])
@@ -32,7 +36,8 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
   const [error, setError] = useState<string | null>(null)
 
   const set = <K extends keyof ProfileForm>(k: K, v: string) => setForm((f) => ({ ...f, [k]: v }))
-  const valid = form.first_name.trim() !== '' && form.last_name.trim() !== '' && !busy
+  const rppsOk = !withRpps || /^[0-9]{11}$/.test(form.rpps ?? '')
+  const valid = form.first_name.trim() !== '' && form.last_name.trim() !== '' && rppsOk && !busy
 
   const run = async (action: () => Promise<{ error: string | null }>) => {
     setBusy(true)
@@ -90,7 +95,39 @@ export function ProfileEditModal({ profile, onClose, onSave, onArchive }: Profil
         <Input label="Prénom" value={form.first_name} onChange={(e) => set('first_name', e.target.value)} placeholder="Claire" autoFocus />
         <Input label="Nom" value={form.last_name} onChange={(e) => set('last_name', e.target.value)} placeholder="Morel" />
       </div>
-      <Input label="Spécialité" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} placeholder="Chirurgien-dentiste" />
+      <Input
+        label={withRpps ? 'Fonction' : 'Spécialité'}
+        value={form.specialty}
+        onChange={(e) => set('specialty', e.target.value)}
+        placeholder="Chirurgien-dentiste"
+        list="woui-fonctions"
+      />
+      <datalist id="woui-fonctions">
+        {PRACTITIONER_FUNCTIONS.map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
+      {withRpps && (
+        <div className="mb-5">
+          <div className="[&>label]:mb-1">
+            <Input
+              label="Numéro RPPS"
+              value={form.rpps ?? ''}
+              onChange={(e) => set('rpps', e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+              maxLength={12}
+              inputMode="numeric"
+              placeholder="10001234567"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>
+            {profile?.rpps && profile.rpps === form.rpps ? (
+              <RppsBadge status={profile.rpps_status} identity={profile.rpps_identity} />
+            ) : (
+              <span>11 chiffres, vérifié dans l’Annuaire Santé. Il n’apparaît pas sur les documents des patients.</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {!profile?.isMain && (
         <div className="mb-5">

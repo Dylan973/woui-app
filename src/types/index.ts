@@ -23,6 +23,13 @@ export interface Doctor {
   /** Nom du cabinet (toutes les offres) et logo (offre Clinique), affichés aux patients. */
   cabinet_name?: string | null
   logo_path?: string | null
+  /** 'practitioner' : compte d'un dentiste (Starter, Pro). 'cabinet' : compte du cabinet (Clinique). */
+  account_type?: 'practitioner' | 'cabinet'
+  /** Compte cabinet : SIRET (14 chiffres) et adresse. */
+  siret?: string | null
+  address?: string | null
+  /** Offre Clinique : praticiens payés en plus des 3 compris. */
+  extra_seats?: number
   plan: PlanId
   plan_status: PlanStatus
   stripe_customer_id: string | null
@@ -118,6 +125,9 @@ export interface Practitioner {
   color: string
   photo_path?: string | null
   signature_path?: string | null
+  rpps?: string | null
+  rpps_status?: 'unverified' | 'verified' | 'mismatch' | 'not_found'
+  rpps_identity?: string | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -131,8 +141,13 @@ export interface Profile {
   specialty: string
   color: string
   isMain: boolean
+  /** Compte cabinet (Clinique) : le profil « main » est l'espace « Gestion du cabinet ». */
+  kind?: 'cabinet' | 'practitioner'
   photo_path: string | null
   signature_path: string | null
+  rpps?: string | null
+  rpps_status?: 'unverified' | 'verified' | 'mismatch' | 'not_found'
+  rpps_identity?: string | null
   /** Lien temporaire vers la photo, s'il y en a une. */
   photoUrl?: string | null
 }
@@ -142,6 +157,8 @@ export interface ProfileForm {
   last_name: string
   specialty: string
   color: string
+  /** Offre Clinique : numéro RPPS du praticien (11 chiffres). */
+  rpps?: string
 }
 
 export interface Plan {

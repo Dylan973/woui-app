@@ -6,6 +6,7 @@ import { SendModal } from '../dashboard/SendModal'
 import { Toast, type ToastType } from '../ui/Toast'
 import { Preloader } from '../ui/Preloader'
 import { ClinicWelcomeModal } from '../profiles/ClinicModals'
+import { CabinetSetup } from '../profiles/CabinetSetup'
 import { PinOfferModal } from '../profiles/PinOfferModal'
 import { SignatureSetupModal } from '../profiles/SignatureSetupModal'
 import { PinDialog } from '../profiles/PinDialog'
@@ -27,11 +28,14 @@ import {
   markSignaturePromptSeen,
   signaturePromptSeen,
   canUseProfiles,
+  isCabinetAccount,
+  practitionerPlaces,
   profileName,
   clinicWelcomeSeen,
   markClinicWelcomeSeen,
   readActiveProfile,
   writeActiveProfile,
+  writeCabinetSession,
 } from '../../lib/profiles'
 import type { Doctor, Profile } from '../../types'
 
@@ -54,8 +58,12 @@ export interface DashboardOutletContext {
   selectProfile: (profileId: string) => void
   practitionersApi: Pick<
     ReturnType<typeof usePractitioners>,
-    'createPractitioner' | 'updatePractitioner' | 'archivePractitioner' | 'setPractitionerPhoto'
+    'createPractitioner' | 'updatePractitioner' | 'archivePractitioner' | 'setPractitionerPhoto' | 'verifyRpps' | 'refetch'
   >
+  /** Offre Clinique : compte du cabinet (le profil « main » est « Gestion du cabinet »). */
+  isCabinet: boolean
+  /** Compte cabinet : nombre de praticiens possibles (3 + places payées en plus). */
+  practitionerPlaces: number
   /** Après un changement de signature ou de tampon : recharge le profil et affiche le message. */
   onSignatureSaved: (message: string) => Promise<void>
   /** Offre Clinique, profil du titulaire : il peut afficher les envois de tout le cabinet. */
@@ -96,7 +104,18 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     updatePractitioner,
     archivePractitioner,
     setPractitionerPhoto,
+    verifyRpps,
   } = usePractitioners(doctor?.id ?? null)
+  // Configuration de l'offre Clinique en cours (reste affichée jusqu'à « Terminer »).
+  const setupKey = `woui-cabinet-setup-${doctor?.id ?? ''}`
+  const [, setSetupTick] = useState(0)
+  const readSetupOpen = () => {
+    try {
+      return sessionStorage.getItem(setupKey) === '1'
+    } catch {
+      return false
+    }
+  }
   const [signatureDismissed, setSignatureDismissed] = useState(false)
   const pinApi = useProfilePins(doctor?.id ?? null)
   const [creatingPin, setCreatingPin] = useState(false)
@@ -199,7 +218,40 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
       <Preloader />
     )
   }
-  if (needsChoice && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
+  // Offre Clinique : configuration du cabinet (compte cabinet, code de gestion, au moins un praticien).
+  const isCabinet = isCabinetAccount(doctor)
+  const needsSetup =
+    profilesEnabled && (!isCabinet || !(pinApi.pins[MAIN_PROFILE]?.hasPin ?? false) || profiles.filter((p) => !p.isMain).length === 0)
+  if (needsSetup || readSetupOpen()) {
+    if (needsSetup) {
+      try {
+        sessionStorage.setItem(setupKey, '1')
+      } catch {
+        /* sans stockage, l'assistant se ferme au premier praticien */
+      }
+    }
+    return (
+      <CabinetSetup
+        doctor={doctor}
+        practitioners={profiles.filter((p) => !p.isMain)}
+        pinApi={pinApi}
+        practitionersApi={{ createPractitioner, verifyRpps, setPractitionerPhoto, refetch: refetchPractitioners }}
+        refetchDoctor={refetchDoctor}
+        onDone={() => {
+          try {
+            sessionStorage.removeItem(setupKey)
+          } catch {
+            /* rien à effacer */
+          }
+          setSetupTick((n) => n + 1)
+          markClinicWelcomeSeen(doctor.id)
+          navigate('/profiles')
+        }}
+        onSignOut={() => void onSignOut().then(() => navigate('/login'))}
+      />
+    )
+  }
+  if ((needsChoice || isCabinet) && !chosen && !onProfilesPage) return <Navigate to="/profiles" replace />
 
   // Un consentement dont le profil a été retiré revient au titulaire du compte.
   const activeIds = new Set(profiles.map((p) => p.id))
@@ -208,19 +260,23 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   // Vue « Tout le cabinet » : réservée au profil du titulaire, pour qu'un profil protégé par un code
   // ne soit pas lisible depuis celui d'un autre praticien.
   const cabinetViewAvailable = multiProfile && activeProfile.isMain
-  const showCabinet = cabinetViewAvailable && cabinetView
+  // Gestion du cabinet : toujours la vue de tout le cabinet.
+  const showCabinet = cabinetViewAvailable && (cabinetView || isCabinet)
   const consents =
     multiProfile && !showCabinet ? allConsents.filter((c) => ownerOf(c.practitioner_id) === activeProfile.id) : allConsents
 
   const selectProfile = (profileId: string) => {
+    // La session « Gestion du cabinet » ne suit pas vers le profil d'un praticien.
+    if (profileId !== MAIN_PROFILE) writeCabinetSession(doctor.id, null)
     writeActiveProfile(doctor.id, profileId)
     setActiveId(profileId)
     navigate('/dashboard')
   }
   const showClinicWelcome =
-    profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
+    !isCabinet && profilesEnabled && !multiProfile && !onProfilesPage && !welcomeDismissed && !clinicWelcomeSeen(doctor.id)
   // Première ouverture d'un profil : on propose d'enregistrer sa signature ou son tampon (toutes les offres).
   const showSignatureSetup =
+    activeProfile.kind !== 'cabinet' &&
     !onProfilesPage &&
     !showClinicWelcome &&
     !signatureDismissed &&
@@ -237,7 +293,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }
   // Première ouverture d'un profil : on propose une fois de le protéger par un code.
   const activePin = pinApi.pins[activeProfile.id]
-  const showPinOffer = pinEnabled && !onProfilesPage && !showClinicWelcome && !showSignatureSetup && !creatingPin && !activePin?.hasPin && !activePin?.offered
+  const showPinOffer = pinEnabled && activeProfile.kind !== 'cabinet' && !onProfilesPage && !showClinicWelcome && !showSignatureSetup && !creatingPin && !activePin?.hasPin && !activePin?.offered
   const closeClinicWelcome = (goToProfiles: boolean) => {
     markClinicWelcomeSeen(doctor.id)
     setWelcomeDismissed(true)
@@ -277,7 +333,9 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     profileChosen: chosen !== null || !needsChoice,
     profilesEnabled,
     selectProfile,
-    practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto },
+    practitionersApi: { createPractitioner, updatePractitioner, archivePractitioner, setPractitionerPhoto, verifyRpps, refetch: refetchPractitioners },
+    isCabinet,
+    practitionerPlaces: practitionerPlaces(doctor),
     pinApi,
     pinEnabled,
     onSignatureSaved,
@@ -322,6 +380,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
         activeProfile={activeProfile}
         profilesEnabled={profilesEnabled}
         multiProfile={multiProfile}
+        canSend={activeProfile.kind !== 'cabinet'}
         onOpenSendModal={() => setShowSend(true)} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
 
       <main style={{ padding: '40px 34px 90px', maxWidth: 1520, margin: '0 auto' }} className="!px-[clamp(1rem,4vw,34px)]">
@@ -340,7 +399,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           planId={doctor.plan}
           quotesEnabled={canSendQuotes(doctor)}
           doctorId={doctor.id}
-          senders={cabinetViewAvailable ? profiles : null}
+          senders={cabinetViewAvailable && !isCabinet ? profiles : null}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
         />

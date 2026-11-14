@@ -1,5 +1,6 @@
 // Configure Stripe pour Woui en un appel, sans terminal (idempotent, relançable).
 // Crée : 3 produits, 6 prix (mensuel + annuel −20 %, lookup keys woui_<plan>_<interval>),
+// le praticien supplémentaire Clinique (woui_clinic_seat_<interval>),
 // la configuration du portail client et le webhook vers stripe-webhook, dont le
 // secret est enregistré dans app_secrets (jamais renvoyé au navigateur).
 //
@@ -56,6 +57,25 @@ Deno.serve(async (req) => {
         })
         log.push(`Prix créé : ${lookup}`)
       }
+    }
+    // Praticien supplémentaire de l'offre Clinique (au-delà des 3 compris) : 40 € par mois.
+    const seatFound = await stripe.products.search({ query: `metadata['woui_plan']:'clinic_seat'` })
+    const seatProduct =
+      seatFound.data[0] ??
+      (await stripe.products.create({ name: 'Woui Clinique — praticien supplémentaire', metadata: { woui_plan: 'clinic_seat' } }))
+    for (const [interval, amount] of [['monthly', 4000], ['yearly', 38400]] as const) {
+      const lookup = `woui_clinic_seat_${interval}`
+      const existing = await stripe.prices.list({ lookup_keys: [lookup], active: true, limit: 1 })
+      if (existing.data[0]) continue
+      await stripe.prices.create({
+        product: seatProduct.id,
+        currency: 'eur',
+        unit_amount: amount,
+        recurring: { interval: interval === 'monthly' ? 'month' : 'year' },
+        lookup_key: lookup,
+        transfer_lookup_key: true,
+      })
+      log.push(`Prix créé : ${lookup}`)
     }
     log.push('Produits et prix prêts')
 

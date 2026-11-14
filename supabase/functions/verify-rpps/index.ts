@@ -1,12 +1,13 @@
 // supabase/functions/verify-rpps/index.ts
 //
-// Enregistre et vérifie le numéro RPPS du titulaire du compte dans l'Annuaire Santé
+// Enregistre et vérifie un numéro RPPS dans l'Annuaire Santé
 // (API FHIR en libre accès de l'Agence du Numérique en Santé).
 //
 // - Réservé à un utilisateur connecté ; il ne peut vérifier que son propre compte.
-// - Corps : { rpps?: string } — s'il est fourni, le numéro (11 chiffres) remplace l'actuel.
-// - Résultat enregistré dans doctors.rpps_status :
-//     verified  : le numéro existe et le nom de famille correspond à celui du compte
+// - Corps : { rpps?: string, practitionerId?: string } — s'il est fourni, le numéro (11 chiffres) remplace
+//   l'actuel. Avec practitionerId (offre Clinique), c'est le profil de ce praticien qui est vérifié.
+// - Résultat enregistré dans rpps_status :
+//     verified  : le numéro existe et le nom de famille correspond
 //     mismatch  : le numéro existe, mais le nom ne correspond pas
 //     not_found : le numéro n'existe pas dans l'annuaire (les envois sont alors bloqués)
 //     unverified: annuaire indisponible ou clé absente — rien n'est bloqué
@@ -35,7 +36,7 @@ function json(body: unknown, status = 200) {
 const normalize = (s: string) =>
   s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .replace(/[^A-Z]+/g, ' ')
     .trim()
@@ -80,15 +81,27 @@ Deno.serve(async (req) => {
     const { data: doctor } = await admin.from('doctors').select('id, last_name, rpps').eq('user_id', userData.user.id).maybeSingle()
     if (!doctor) return json({ error: 'Compte introuvable' }, 404)
 
-    const body = (await req.json().catch(() => ({}))) as { rpps?: string }
-    const rpps = (body.rpps ?? doctor.rpps ?? '').replace(/\s/g, '')
+    const body = (await req.json().catch(() => ({}))) as { rpps?: string; practitionerId?: string }
+    // Cible : le titulaire du compte, ou un praticien de ce compte (offre Clinique).
+    let target = { table: 'doctors', id: doctor.id as string, lastName: doctor.last_name as string | null, rpps: doctor.rpps as string | null }
+    if (body.practitionerId) {
+      const { data: p } = await admin
+        .from('practitioners')
+        .select('id, last_name, rpps')
+        .eq('id', body.practitionerId)
+        .eq('doctor_id', doctor.id)
+        .maybeSingle()
+      if (!p) return json({ error: 'Profil praticien introuvable' }, 404)
+      target = { table: 'practitioners', id: p.id, lastName: p.last_name, rpps: p.rpps }
+    }
+    const rpps = (body.rpps ?? target.rpps ?? '').replace(/\s/g, '')
     if (!/^[0-9]{11}$/.test(rpps)) return json({ error: 'Le numéro RPPS contient 11 chiffres.' }, 400)
 
     const save = async (status: string, identity: string | null, checked: boolean) => {
       const { error } = await admin
-        .from('doctors')
+        .from(target.table)
         .update({ rpps, rpps_status: status, rpps_identity: identity, rpps_checked_at: checked ? new Date().toISOString() : null })
-        .eq('id', doctor.id)
+        .eq('id', target.id)
       if (error) throw error
       return json({ rpps, status, identity })
     }
@@ -102,7 +115,7 @@ Deno.serve(async (req) => {
     const identity = names
       .map((n) => n.text ?? [...(n.given ?? []), n.family ?? ''].join(' ').trim())
       .filter(Boolean)[0] ?? null
-    const account = normalize(doctor.last_name ?? '')
+    const account = normalize(target.lastName ?? '')
     const matches =
       account !== '' &&
       names.some((n) => {

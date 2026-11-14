@@ -3,7 +3,7 @@
 //   supabase functions deploy stripe-webhook --no-verify-jwt
 // Secret requis : STRIPE_WEBHOOK_SECRET (whsec_...)
 import Stripe from 'npm:stripe@17.7.0'
-import { admin, parseLookupKey, stripe } from '../_shared/stripe.ts'
+import { admin, isSeatLookupKey, parseLookupKey, stripe } from '../_shared/stripe.ts'
 
 // Secret du webhook : variable d'environnement, sinon celui enregistré par stripe-setup.
 let webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
@@ -32,8 +32,12 @@ function mapStatus(status: Stripe.Subscription.Status): 'active' | 'trialing' | 
 }
 
 async function syncSubscription(sub: Stripe.Subscription) {
-  const item = sub.items.data[0]
+  // Ligne de l'offre (Starter, Pro, Clinique) et, en Clinique, praticiens supplémentaires.
+  const item = sub.items.data.find((i) => parseLookupKey(i.price?.lookup_key)) ?? sub.items.data[0]
   const parsed = parseLookupKey(item?.price?.lookup_key)
+  const extraSeats = sub.status === 'canceled'
+    ? 0
+    : sub.items.data.filter((i) => isSeatLookupKey(i.price?.lookup_key)).reduce((n, i) => n + (i.quantity ?? 0), 0)
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
   // Selon la version d'API, la fin de période est sur l'abonnement ou sur la ligne.
   const periodEnd =
@@ -50,6 +54,7 @@ async function syncSubscription(sub: Stripe.Subscription) {
       : periodEnd
         ? new Date(periodEnd * 1000).toISOString()
         : null,
+    extra_seats: extraSeats,
     updated_at: new Date().toISOString(),
   }
   if (parsed) {

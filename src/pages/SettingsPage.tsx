@@ -13,6 +13,8 @@ import { countThisMonth } from '../lib/usage'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import { CabinetIdentity } from '../components/settings/CabinetIdentity'
 import { ArchiveCard } from '../components/settings/ArchiveCard'
+import { CabinetInfoCard, PractitionerInfoCard } from '../components/settings/CabinetProfileCards'
+import { TeamSeats } from '../components/settings/TeamSeats'
 
 type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'security'
 
@@ -54,7 +56,9 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
-  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling } = useOutletContext<DashboardOutletContext>()
+  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling, isCabinet, practitionersApi, practitionerPlaces } =
+    useOutletContext<DashboardOutletContext>()
+  const cabinetSpace = isCabinet && activeProfile.isMain
   const navigate = useNavigate()
   const [rpps, setRpps] = useState(doctor.rpps ?? '')
   const [rppsBusy, setRppsBusy] = useState(false)
@@ -113,7 +117,7 @@ export function SettingsPage() {
 
   const choosePlan = async (planId: PlanId) => {
     setBillingBusy(planId)
-    const error = await startCheckout(planId, interval)
+    const error = await startCheckout(planId, interval, doctor.id)
     if (error) {
       setBillingBusy(null)
       showToast(error, 'warning')
@@ -122,7 +126,7 @@ export function SettingsPage() {
 
   const manageBilling = async () => {
     setBillingBusy('portal')
-    const error = await openBillingPortal()
+    const error = await openBillingPortal(doctor.id)
     if (error) {
       setBillingBusy(null)
       showToast(error, 'warning')
@@ -207,7 +211,13 @@ export function SettingsPage() {
         })}
       </div>
 
-      {tab === 'profile' && (
+      {tab === 'profile' && isCabinet && activeProfile.isMain && (
+        <CabinetInfoCard doctor={doctor} refetchDoctor={refetchDoctor} showToast={showToast} onSeePlans={() => setTab('plan')} />
+      )}
+      {tab === 'profile' && isCabinet && !activeProfile.isMain && (
+        <PractitionerInfoCard key={activeProfile.id} doctor={doctor} profile={activeProfile} practitionersApi={practitionersApi} showToast={showToast} />
+      )}
+      {tab === 'profile' && !isCabinet && (
         <div
           className="p-[clamp(1.5rem,4vw,36px)]"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
@@ -301,7 +311,9 @@ export function SettingsPage() {
             )}
           </div>
           <p className="mb-6 mt-[6px] max-w-[620px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-            {profilesEnabled
+            {isCabinet
+              ? `${profiles.length - 1} praticien${profiles.length - 1 > 1 ? 's' : ''} sur ${practitionerPlaces} possibles. Chaque praticien ouvre son profil à l'ouverture de Woui et retrouve ses propres envois.`
+              : profilesEnabled
               ? `Votre cabinet compte ${profiles.length} profil${profiles.length > 1 ? 's' : ''}. Chaque praticien choisit le sien à l'ouverture de Woui et retrouve ses propres consentements.`
               : 'Avec l’abonnement Clinique, chaque praticien du cabinet a son profil : son nom sur les emails et les consentements signés, et ses propres envois.'}
           </p>
@@ -315,6 +327,9 @@ export function SettingsPage() {
               </Button>
             )}
           </div>
+          {isCabinet && (
+            <TeamSeats doctor={doctor} practitionerCount={profiles.length - 1} canManage={cabinetSpace} refetchDoctor={refetchDoctor} showToast={showToast} />
+          )}
         </div>
       )}
 
@@ -330,8 +345,9 @@ export function SettingsPage() {
                 <path d="M8 10V7a4 4 0 0 1 8 0v3" />
               </svg>
               <span>
-                L’abonnement du cabinet est géré par le titulaire du compte, {profileName(profiles[0])}. Ouvrez son profil pour changer d’offre ou
-                modifier le paiement.
+                {isCabinet
+                  ? 'L’abonnement du cabinet se gère depuis « Gestion du cabinet », avec son code. Changez de profil pour modifier l’offre ou le paiement.'
+                  : `L’abonnement du cabinet est géré par le titulaire du compte, ${profileName(profiles[0])}. Ouvrez son profil pour changer d’offre ou modifier le paiement.`}
               </span>
             </div>
           )}
@@ -494,7 +510,13 @@ export function SettingsPage() {
 
       {tab === 'documents' && (
         <div className="flex flex-col gap-[22px]">
-          <DocumentsTab doctorId={doctor.id} activeProfile={activeProfile} onSignatureSaved={onSignatureSaved} showToast={showToast} />
+          <DocumentsTab
+            doctorId={doctor.id}
+            activeProfile={activeProfile}
+            onSignatureSaved={onSignatureSaved}
+            showToast={showToast}
+            withSignature={!cabinetSpace}
+          />
           <ArchiveCard
             doctorId={doctor.id}
             accountCreatedAt={doctor.created_at}
@@ -513,7 +535,7 @@ export function SettingsPage() {
         >
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
-              Code du profil
+              {cabinetSpace ? 'Code de Gestion du cabinet' : 'Code du profil'}
             </h2>
             <span
               className="font-mono rounded-[3px] px-2 py-[3px] text-[10px] uppercase tracking-[0.1em]"
@@ -526,7 +548,9 @@ export function SettingsPage() {
             </span>
           </div>
           <p className="mb-6 mt-[6px] max-w-[620px] text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-            {pinEnabled || hasPin
+            {cabinetSpace
+              ? 'Obligatoire. Il protège l’abonnement, les factures, l’équipe et l’activité de tout le cabinet. Vous pouvez le changer, pas le supprimer.'
+              : pinEnabled || hasPin
               ? `Un code à 4 chiffres, demandé à chaque ouverture du profil « ${profileName(activeProfile)} ». Facultatif, utile sur un poste partagé au cabinet.`
               : 'Protégez l’ouverture de votre profil par un code à 4 chiffres. Disponible avec les abonnements Pro et Clinique.'}
           </p>
@@ -536,9 +560,11 @@ export function SettingsPage() {
                 <Button variant="primary" onClick={() => setPinMode('change')}>
                   Modifier le code
                 </Button>
-                <Button variant="ghost" onClick={() => setPinMode('remove')}>
-                  Supprimer le code
-                </Button>
+                {!cabinetSpace && (
+                  <Button variant="ghost" onClick={() => setPinMode('remove')}>
+                    Supprimer le code
+                  </Button>
+                )}
               </>
             ) : pinEnabled ? (
               <Button variant="primary" onClick={() => setPinMode('create')}>

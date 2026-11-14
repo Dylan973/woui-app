@@ -1,7 +1,7 @@
 // Crée une session Stripe Checkout pour souscrire un abonnement Woui.
 // Premier abonnement : 7 jours d'essai gratuit, carte obligatoire.
 // Si un abonnement existe déjà, renvoie vers le portail client (changement de plan).
-import { APP_URL, notConfigured, portalConfigurationId, stripeConfigured, admin, corsHeaders, currentDoctor, json, lookupKey, stripe, type Interval, type PlanId } from '../_shared/stripe.ts'
+import { APP_URL, cabinetAllowed, cabinetLocked, notConfigured, portalConfigurationId, stripeConfigured, admin, corsHeaders, currentDoctor, json, lookupKey, stripe, type Interval, type PlanId } from '../_shared/stripe.ts'
 
 const TRIAL_DAYS = 7
 
@@ -13,6 +13,9 @@ Deno.serve(async (req) => {
     if (!stripeConfigured) return notConfigured()
     const doctor = await currentDoctor(req)
     if (!doctor) return json({ error: 'Connexion requise' }, 401)
+    // Premier abonnement d'un cabinet (juste après l'inscription) : pas encore de code de gestion.
+    const firstPurchase = doctor.plan_status === 'incomplete' && !doctor.stripe_subscription_id
+    if (!firstPurchase && !(await cabinetAllowed(req, doctor))) return cabinetLocked()
 
     const { plan, interval } = (await req.json()) as { plan?: PlanId; interval?: Interval }
     if (!plan || !['starter', 'pro', 'clinic'].includes(plan)) return json({ error: 'Plan invalide' }, 400)
@@ -34,10 +37,12 @@ Deno.serve(async (req) => {
 
     let customerId = doctor.stripe_customer_id
     if (!customerId) {
+      // Offre Clinique : le client Stripe (et donc la facture) est le cabinet, avec son SIRET.
+      const cabinet = doctor.account_type === 'cabinet'
       const customer = await stripe.customers.create({
         email: doctor.email,
-        name: [doctor.first_name, doctor.last_name].filter(Boolean).join(' ') || undefined,
-        metadata: { doctor_id: doctor.id },
+        name: (cabinet ? doctor.cabinet_name : [doctor.first_name, doctor.last_name].filter(Boolean).join(' ')) || undefined,
+        metadata: { doctor_id: doctor.id, ...(cabinet && doctor.siret ? { siret: doctor.siret } : {}) },
       })
       customerId = customer.id
       await admin.from('doctors').update({ stripe_customer_id: customerId }).eq('id', doctor.id)

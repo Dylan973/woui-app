@@ -12,12 +12,14 @@ interface DocumentsTabProps {
   activeProfile: Profile
   onSignatureSaved: (message: string) => Promise<void>
   showToast: (msg: string, type?: ToastType) => void
+  /** Gestion du cabinet : pas de signature (chaque praticien signe depuis son profil). */
+  withSignature?: boolean
 }
 
 const CARD = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
 
 /** Paramètres > Documents PDF : signature ou tampon du praticien, formulaires de consentement du cabinet. */
-export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast }: DocumentsTabProps) {
+export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast, withSignature = true }: DocumentsTabProps) {
   const { templates, loading, saveTemplate, removeTemplate } = useConsentTemplates(doctorId)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -36,6 +38,7 @@ export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showTo
 
   return (
     <div className="flex flex-col gap-[22px]" style={{ animation: 'nb-rise 0.35s var(--ease-standard) both' }}>
+      {withSignature && (
       <div className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
         <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
           Votre signature ou tampon
@@ -46,6 +49,7 @@ export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showTo
         </p>
         <PractitionerSignature doctorId={doctorId} profile={activeProfile} onSaved={onSignatureSaved} />
       </div>
+      )}
 
       <div className="p-[clamp(1.5rem,4vw,36px)]" style={CARD}>
         <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>

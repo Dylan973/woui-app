@@ -7,7 +7,10 @@ import { ClinicUpsellModal } from '../components/profiles/ClinicModals'
 import { supabase } from '../lib/supabase'
 import { removeAvatar, uploadAvatar } from '../lib/avatar'
 import { WOUI_LOGO_URL } from '../lib/constants'
-import { profileName } from '../lib/profiles'
+import { EXTRA_SEAT_PRICE, isCabinetAccount, practitionerPlaces, profileName, readCabinetSession } from '../lib/profiles'
+import { changeExtraSeats } from '../lib/billing'
+import { Modal } from '../components/ui/Modal'
+import { Button } from '../components/ui/Button'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import type { Profile, ProfileForm } from '../types'
 
@@ -40,6 +43,14 @@ export function ProfilesPage() {
   const [unlocking, setUnlocking] = useState<Profile | null>(null)
   const [resetNote, setResetNote] = useState<string | null>(null)
   const [upsell, setUpsell] = useState(false)
+  const [creatingCabinetPin, setCreatingCabinetPin] = useState(false)
+  const [seatModal, setSeatModal] = useState(false)
+  const [seatBusy, setSeatBusy] = useState(false)
+  const [seatError, setSeatError] = useState<string | null>(null)
+  // Offre Clinique : compte du cabinet, « Gestion du cabinet » + profils des praticiens.
+  const cabinet = isCabinetAccount(doctor)
+  const practitionerCount = profiles.filter((p) => !p.isMain).length
+  const places = practitionerPlaces(doctor)
 
   // Lien « code oublié » reçu par e-mail : supprime le code du profil concerné.
   const resetToken = searchParams.get('reset')
@@ -106,11 +117,57 @@ export function ProfilesPage() {
       void removeAvatar(target?.photo_path)
     }
     if (isMain) await refetchDoctor()
+    // Compte cabinet : RPPS du praticien enregistré et vérifié dans l'Annuaire Santé.
+    if (cabinet && profileId && form.rpps && form.rpps !== (target?.rpps ?? '')) {
+      const checked = await practitionersApi.verifyRpps(profileId, form.rpps)
+      if (checked.error) {
+        showToast(`Profil enregistré, mais le RPPS n’a pas pu être vérifié : ${checked.error}`, 'warning')
+        return { error: null }
+      }
+      if (checked.status === 'not_found') {
+        showToast('Profil enregistré. Ce numéro RPPS est introuvable dans l’Annuaire Santé : corrigez-le pour pouvoir envoyer.', 'warning')
+        return { error: null }
+      }
+      if (checked.status === 'mismatch') {
+        showToast(`Profil enregistré. Dans l’Annuaire Santé, ce RPPS est au nom de « ${checked.identity ?? '—'} ».`, 'warning')
+        return { error: null }
+      }
+    }
     showToast(target ? 'Profil enregistré' : 'Profil créé')
     return { error: null }
   }
 
+  const addSeat = async () => {
+    setSeatBusy(true)
+    setSeatError(null)
+    const { error } = await changeExtraSeats('add', doctor.id)
+    setSeatBusy(false)
+    if (error) {
+      setSeatError(error)
+      return
+    }
+    await refetchDoctor()
+    setSeatModal(false)
+    showToast('Place ajoutée. Vous pouvez créer le profil du praticien.')
+    setEditing('new')
+  }
+
+  const onAdd = () => {
+    if (cabinet && practitionerCount >= places) {
+      setSeatError(null)
+      setSeatModal(true)
+    } else setEditing('new')
+  }
+
   const onTile = (profile: Profile) => {
+    if (profile.kind === 'cabinet') {
+      // Gestion du cabinet : jamais modifiable comme un profil, toujours protégée par le code.
+      if (managing) return
+      setResetNote(null)
+      if (pinApi.pins[profile.id]?.hasPin) setUnlocking(profile)
+      else setCreatingCabinetPin(true)
+      return
+    }
     if (managing) setEditing(profile)
     else if (pinApi.pins[profile.id]?.hasPin) {
       setResetNote(null)
@@ -139,7 +196,9 @@ export function ProfilesPage() {
       <p className="mt-3 max-w-[520px] text-center text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
         {managing
           ? 'Cliquez sur un profil pour modifier son nom, sa spécialité, sa photo ou sa couleur.'
-          : profilesEnabled
+          : cabinet
+            ? 'Chaque praticien ouvre son profil. « Gestion du cabinet » regroupe l’abonnement, l’équipe et l’activité de tout le cabinet.'
+            : profilesEnabled
             ? 'Choisissez votre profil : chaque praticien retrouve ses propres consentements.'
             : 'Votre cabinet compte plusieurs praticiens ? Donnez un profil à chacun avec l’abonnement Clinique.'}
       </p>
@@ -164,7 +223,7 @@ export function ProfilesPage() {
                 }}
               >
                 <ProfileAvatar profile={profile} className={`${TILE} text-[clamp(1.6rem,5vw,40px)]`} />
-                {managing && (
+                {managing && profile.kind !== 'cabinet' && (
                   <span className="absolute inset-0 flex items-center justify-center rounded-[16px]" style={{ background: 'rgba(0,0,0,0.45)' }}>
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6" aria-hidden="true">
                       <path d="M12 20h9" />
@@ -190,7 +249,7 @@ export function ProfilesPage() {
                   {profileName(profile)}
                 </span>
                 <span className="block text-[12.5px]" style={{ color: 'var(--text-muted)' }}>
-                  {profile.isMain ? 'Titulaire du compte' : profile.specialty}
+                  {profile.kind === 'cabinet' ? doctor.cabinet_name || 'Abonnement et équipe' : profile.isMain ? 'Titulaire du compte' : profile.specialty}
                 </span>
               </span>
             </button>
@@ -200,7 +259,7 @@ export function ProfilesPage() {
         {profilesEnabled ? (
           <button
             type="button"
-            onClick={() => setEditing('new')}
+            onClick={onAdd}
             className="group flex cursor-pointer flex-col items-center gap-3"
             style={{ background: 'none', border: 0 }}
           >
@@ -210,8 +269,15 @@ export function ProfilesPage() {
             >
               +
             </span>
-            <span className="text-[0.9375rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              Ajouter un profil
+            <span className="text-center">
+              <span className="block text-[0.9375rem] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Ajouter un praticien
+              </span>
+              {cabinet && (
+                <span className="block text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  {practitionerCount} / {places} profils
+                </span>
+              )}
             </span>
           </button>
         ) : (
@@ -285,6 +351,7 @@ export function ProfilesPage() {
           profile={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSave={save}
+          withRpps={cabinet}
           onArchive={
             editing !== 'new' && !editing.isMain
               ? async () => {
@@ -303,7 +370,10 @@ export function ProfilesPage() {
           avatar={<ProfileAvatar profile={unlocking} className="h-[72px] w-[72px] rounded-[16px] text-[24px]" />}
           onClose={() => setUnlocking(null)}
           onComplete={async (values) => {
-            const message = await pinApi.verifyPin(unlocking.id, values.current ?? '')
+            const message =
+              unlocking.kind === 'cabinet'
+                ? await pinApi.openCabinetSession(values.current ?? '')
+                : await pinApi.verifyPin(unlocking.id, values.current ?? '')
             if (!message) selectProfile(unlocking.id)
             return message
           }}
@@ -324,6 +394,67 @@ export function ProfilesPage() {
             )
           }
         />
+      )}
+
+      {creatingCabinetPin && (
+        <PinDialog
+          steps={[
+            { key: 'new', title: 'Code de Gestion du cabinet', hint: 'Choisissez un code à 4 chiffres, obligatoire' },
+            { key: 'confirm', title: 'Confirmez le code', hint: 'Saisissez-le une seconde fois' },
+          ]}
+          onClose={() => setCreatingCabinetPin(false)}
+          onComplete={async (values) => {
+            const message = (await pinApi.setPin('main', values.new ?? '')) ?? (await pinApi.openCabinetSession(values.new ?? ''))
+            if (!message) {
+              setCreatingCabinetPin(false)
+              selectProfile('main')
+            }
+            return message
+          }}
+        />
+      )}
+
+      {seatModal && (
+        <Modal onClose={() => setSeatModal(false)} maxWidth={500}>
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-accent)' }}>
+            Praticien supplémentaire
+          </div>
+          <h2 className="font-display mt-3 text-[24px] leading-[1.2]" style={{ color: 'var(--text-primary)' }}>
+            Votre offre comprend {places} praticiens
+          </h2>
+          <p className="my-4 text-[0.9375rem] leading-[1.6]" style={{ color: 'var(--text-secondary)' }}>
+            Chaque praticien en plus coûte {EXTRA_SEAT_PRICE} € par mois, ajouté à l’abonnement du cabinet au prorata. Vous pourrez retirer la
+            place depuis Gestion du cabinet.
+          </p>
+          {readCabinetSession(doctor.id) ? (
+            <>
+              {seatError && (
+                <p className="mb-3 text-[0.875rem]" style={{ color: 'var(--danger-text)' }}>
+                  {seatError}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setSeatModal(false)}>
+                  Annuler
+                </Button>
+                <Button variant="primary" size="sm" disabled={seatBusy} onClick={addSeat}>
+                  {seatBusy ? 'Ajout…' : `Ajouter une place (${EXTRA_SEAT_PRICE} € / mois)`}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-[0.875rem]" style={{ color: 'var(--text-muted)' }}>
+                L’ajout d’une place modifie l’abonnement : ouvrez d’abord « Gestion du cabinet » avec son code.
+              </p>
+              <div className="flex justify-end">
+                <Button variant="primary" size="sm" onClick={() => setSeatModal(false)}>
+                  Compris
+                </Button>
+              </div>
+            </>
+          )}
+        </Modal>
       )}
 
       {upsell && <ClinicUpsellModal onClose={() => setUpsell(false)} onSeePlans={() => navigate('/settings?tab=plan')} />}
