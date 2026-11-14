@@ -87,6 +87,12 @@ export interface Consent {
   postop_path?: string | null
   postop_name?: string | null
   postop_opened_at?: string | null
+  /** Fiche patient et date de naissance. */
+  patient_id?: string | null
+  birth_date?: string | null
+  /** Signatures séparées : consentement et devis (patient prêt à planifier les rendez-vous). */
+  consent_signed_at?: string | null
+  quote_ready?: boolean
   created_at: string
 }
 
@@ -116,6 +122,9 @@ export interface PatientConsent {
   has_postop?: boolean
   postop_name?: string | null
   appointment_at?: string | null
+  /** Devis et consentement se signent séparément. */
+  quote_signed_at?: string | null
+  consent_signed_at?: string | null
 }
 
 /** Formulaire de consentement du cabinet (PDF) pour un acte. */

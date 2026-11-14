@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: consent } = await admin
       .from('consents')
-      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, with_postop, postop_path, postop_opened_at, pdf_url, quote_pdf_url, link_expires_at, doctors!inner(logo_path, plan)')
+      .select('id, patient, status, kind, template_path, quote_path, quote_opened_at, quote_signed_at, consent_signed_at, with_postop, postop_path, postop_opened_at, pdf_url, quote_pdf_url, link_expires_at, doctors!inner(logo_path, plan)')
       .eq('token', token)
       .maybeSingle()
     if (!consent) return json({ error: 'Lien invalide' }, 404)
@@ -54,13 +54,14 @@ Deno.serve(async (req) => {
     const signed = consent.status === 'signed'
     const expired = !signed && new Date(consent.link_expires_at).getTime() < Date.now()
     const doctor = consent.doctors as unknown as { logo_path: string | null; plan: string }
-    if (expired && doc !== 'logo' && doc !== 'postop') return json({ error: 'Lien expiré' }, 410)
+    // Documents signés, conseils et logo restent accessibles après l'expiration du lien.
+    if (expired && !['logo', 'postop', 'consent_signed', 'quote_signed'].includes(doc)) return json({ error: 'Lien expiré' }, 410)
     const choice: Record<string, { bucket: string; path: string | null; name: string } | undefined> = {
       consent: consent.kind === 'consent' || consent.kind === 'both' ? { bucket: 'documents', path: consent.template_path, name: 'consentement' } : undefined,
       quote: consent.kind === 'quote' || consent.kind === 'both' ? { bucket: 'documents', path: consent.quote_path, name: 'devis' } : undefined,
       postop: consent.with_postop ? { bucket: 'documents', path: consent.postop_path, name: 'conseils-post-operatoires' } : undefined,
-      consent_signed: signed ? { bucket: 'consents', path: consent.pdf_url, name: 'consentement-signe' } : undefined,
-      quote_signed: signed ? { bucket: 'consents', path: consent.quote_pdf_url, name: 'devis-signe' } : undefined,
+      consent_signed: consent.consent_signed_at || signed ? { bucket: 'consents', path: consent.pdf_url, name: 'consentement-signe' } : undefined,
+      quote_signed: consent.quote_signed_at || signed ? { bucket: 'consents', path: consent.quote_pdf_url, name: 'devis-signe' } : undefined,
       logo: doctor.plan === 'clinic' ? { bucket: 'documents', path: doctor.logo_path, name: 'logo' } : undefined,
     }
     const target = choice[doc]

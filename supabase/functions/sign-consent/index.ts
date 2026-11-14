@@ -1,6 +1,8 @@
 // supabase/functions/sign-consent/index.ts
 //
-// Signature patient (page publique /sign/:token).
+// Signature patient (page publique /sign/:token). Le devis et le consentement se signent séparément :
+//   { token, signature, part: 'quote', ready: true }  → devis (ouvert, patient prêt à planifier les rendez-vous)
+//   { token, signature, part: 'consent' }             → consentement (vidéo visionnée)
 // 1. Enregistre la signature via la fonction SQL sign_consent (refusée si la vidéo
 //    n'a pas été visionnée, si le devis n'a pas été ouvert, si le lien a expiré ou si c'est déjà signé).
 // 2. Relève les éléments de preuve côté serveur : horodatage, IP, appareil.
@@ -16,7 +18,8 @@
 // (accès patient sans compte : l'autorisation repose sur le token du lien).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'npm:pdf-lib@1.17.1'
+// Fork de pdf-lib qui sait déchiffrer les PDF protégés (devis exportés des logiciels de cabinet).
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'npm:@cantoo/pdf-lib@2.11.1'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 
@@ -34,7 +37,7 @@ interface ConsentRow {
   id: string
   doctor_id: string
   practitioner_id: string | null
-  kind: 'consent' | 'quote' | 'both'
+  kind: 'consent' | 'quote' | 'both' | 'postop'
   template_path: string | null
   quote_path: string | null
   quote_name: string | null
@@ -48,7 +51,9 @@ interface ConsentRow {
   sent_at: string
   opened_at: string | null
   viewed_at: string | null
-  signed_at: string
+  signed_at: string | null
+  quote_signed_at: string | null
+  consent_signed_at: string | null
 }
 
 type Signer = { first_name?: string | null; last_name?: string | null; specialty?: string | null; phone?: string | null }
@@ -181,7 +186,7 @@ async function addSignaturePage(pdf: PDFDocument, p: SignaturePage) {
     page.drawText(safe(empty), { x: x + 10, y: y - 8 - boxH / 2, size: 9, font: regular, color: muted })
   }
   await drawBox(left, 'Signature du patient', p.patientPng, '[signature jointe au dossier]')
-  await drawBox(left + boxW + 20, 'Signature ou tampon du praticien', p.practitionerPng, 'Non renseigné')
+  await drawBox(left + boxW + 20, 'Signature et tampon du praticien', p.practitionerPng, 'Non renseigné')
   y -= boxH + 30
   rule()
 
@@ -214,12 +219,16 @@ async function download(path: string | null | undefined): Promise<Uint8Array | n
   return new Uint8Array(await data.arrayBuffer())
 }
 
-/** Document du cabinet (formulaire ou devis) ; document vide s'il est absent ou illisible. */
+/**
+ * Document du cabinet (formulaire ou devis) ; document vide s'il est absent ou illisible.
+ * Les PDF protégés (sans mot de passe d'ouverture) sont déchiffrés : sinon la page de
+ * signature ajoutée rend le fichier illisible.
+ */
 async function baseDocument(path: string | null): Promise<{ pdf: PDFDocument; fromFile: boolean }> {
   const bytes = await download(path)
   if (bytes) {
     try {
-      return { pdf: await PDFDocument.load(bytes, { ignoreEncryption: true }), fromFile: true }
+      return { pdf: await PDFDocument.load(bytes, { password: '' }), fromFile: true }
     } catch (error) {
       console.error('PDF du cabinet illisible:', path, error)
     }
@@ -232,23 +241,43 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405)
 
   try {
-    const { token, signature } = (await req.json()) as { token?: string; signature?: string }
+    const { token, signature, part = 'consent', ready = false } = (await req.json()) as {
+      token?: string
+      signature?: string
+      part?: 'consent' | 'quote'
+      ready?: boolean
+    }
     if (!token || !signature?.startsWith('data:image/png;base64,')) return json({ error: 'Signature invalide' }, 400)
+    if (part !== 'consent' && part !== 'quote') return json({ error: 'Document invalide' }, 400)
+    if (part === 'quote' && ready !== true) return json({ error: 'Confirmez que vous êtes prêt à planifier les rendez-vous.' }, 400)
 
     const ip = (req.headers.get('x-forwarded-for') ?? req.headers.get('cf-connecting-ip') ?? '').split(',')[0].trim()
     const ua = req.headers.get('user-agent') ?? ''
 
-    const { data: rows, error: signError } = await admin.rpc('sign_consent', { p_token: token, p_signature: signature })
+    const { data: rows, error: signError } = await admin.rpc('sign_consent', {
+      p_token: token,
+      p_signature: signature,
+      p_part: part,
+      p_ready: ready === true,
+    })
     const consent = (Array.isArray(rows) ? rows[0] : rows) as ConsentRow | undefined
     if (signError || !consent) {
       return json(
-        { error: 'Signature impossible : la vidéo doit être visionnée en entier, le devis doit avoir été ouvert, le lien doit être encore valable, et le document ne doit pas être déjà signé.' },
+        {
+          error:
+            part === 'quote'
+              ? 'Signature impossible : le devis doit avoir été ouvert, le lien doit être encore valable, et le devis ne doit pas être déjà signé.'
+              : 'Signature impossible : la vidéo doit être visionnée en entier, le lien doit être encore valable, et le consentement ne doit pas être déjà signé.',
+        },
         409
       )
     }
 
     // À partir d'ici la signature est enregistrée : une erreur PDF ne doit pas l'annuler.
-    const update: Record<string, unknown> = { signed_ip: ip || null, signed_user_agent: ua || null }
+    const update: Record<string, unknown> =
+      part === 'quote'
+        ? { quote_signed_ip: ip || null, quote_signed_user_agent: ua || null }
+        : { signed_ip: ip || null, signed_user_agent: ua || null }
     let pdfReady = false
     let quoteReady = false
     try {
@@ -282,14 +311,15 @@ Deno.serve(async (req) => {
       const practitionerRows: [string, string][] = [['Praticien', doctorName === 'Dr' ? '—' : doctorName]]
       if (signer.specialty) practitionerRows.push(['Spécialité', signer.specialty])
       if (signer.phone) practitionerRows.push(['Téléphone du cabinet', signer.phone])
+      const signedAt = part === 'quote' ? consent.quote_signed_at : consent.consent_signed_at
       const proofEnd: [string, string][] = [
-        ['Signé le', `${fmt(consent.signed_at)} (heure de Paris, horodatage serveur)`],
+        ['Signé le', `${fmt(signedAt)} (heure de Paris, horodatage serveur)`],
         ['Adresse IP', ip || 'non disponible'],
         ['Appareil', ua ? ua.slice(0, 160) : 'non disponible'],
         ['Référence', consent.id],
       ]
 
-      if (consent.kind !== 'quote') {
+      if (part === 'consent') {
         try {
           const { pdf, fromFile } = await baseDocument(consent.template_path)
           pdf.setTitle(`Consentement éclairé — ${consent.procedure}`)
@@ -313,7 +343,7 @@ Deno.serve(async (req) => {
           })
           const bytes = await pdf.save()
           const path = `${consent.doctor_id}/${consent.id}.pdf`
-          const { error } = await admin.storage.from('consents').upload(path, bytes, { contentType: 'application/pdf', upsert: false })
+          const { error } = await admin.storage.from('consents').upload(path, bytes, { contentType: 'application/pdf', upsert: true })
           if (error) throw error
           update.pdf_url = path
           update.document_hash = await sha256Hex(bytes)
@@ -323,7 +353,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (consent.kind !== 'consent') {
+      if (part === 'quote') {
         try {
           const { pdf } = await baseDocument(consent.quote_path)
           pdf.setTitle(`Devis signé — ${consent.patient}`)
@@ -332,7 +362,7 @@ Deno.serve(async (req) => {
             subtitle: `Devis${consent.quote_name ? ` — ${consent.quote_name}` : ''}`,
             rows: [...identity, ['Document', consent.quote_name ?? 'Devis'], ...practitionerRows],
             statement:
-              "Bon pour accord. Je reconnais avoir reçu et lu le devis qui précède, en avoir compris le contenu et le montant restant à ma charge, et je l'accepte.",
+              "Bon pour accord. Je reconnais avoir reçu et lu le devis qui précède, en avoir compris le contenu et le montant restant à ma charge, je l'accepte et je suis prêt(e) à planifier les rendez-vous liés à ce devis.",
             patientPng,
             practitionerPng,
             ...branding,
@@ -340,7 +370,7 @@ Deno.serve(async (req) => {
           })
           const bytes = await pdf.save()
           const path = `${consent.doctor_id}/${consent.id}-devis.pdf`
-          const { error } = await admin.storage.from('consents').upload(path, bytes, { contentType: 'application/pdf', upsert: false })
+          const { error } = await admin.storage.from('consents').upload(path, bytes, { contentType: 'application/pdf', upsert: true })
           if (error) throw error
           update.quote_pdf_url = path
           update.quote_hash = await sha256Hex(bytes)
@@ -363,6 +393,9 @@ Deno.serve(async (req) => {
         status: consent.status,
         sent_at: consent.sent_at,
         signed_at: consent.signed_at,
+        quote_signed_at: consent.quote_signed_at,
+        consent_signed_at: consent.consent_signed_at,
+        part,
         video_progress: consent.video_progress,
         pdf_ready: pdfReady,
         quote_ready: quoteReady,
