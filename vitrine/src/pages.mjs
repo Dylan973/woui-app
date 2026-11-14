@@ -51,11 +51,11 @@ const pricingCards = `<div class="pricing-controls reveal" aria-label="Périodic
 const pricingHome = `<section class="container section" id="tarifs">${sectionHeading('Tarifs','Une offre adaptée à votre cabinet','Choisissez votre formule selon le nombre de consentements que vous envoyez chaque mois.')}${pricingCards}</section>`;
 
 const questions = [
-  ['À qui s’adresse Woui ?', 'Woui est destiné aux chirurgiens-dentistes et aux cabinets dentaires qui souhaitent recueillir une signature électronique et suivre leurs consentements.'],
+  ['À qui s’adresse Woui ?', 'Woui est destiné aux cabinets dentaires qui souhaitent recueillir une signature électronique et suivre leurs consentements.'],
   ['Mon patient doit-il créer un compte ?', 'Le patient reçoit un lien personnel par e-mail. Il l’ouvre dans son navigateur pour accéder au parcours de consentement, sans créer de compte.'],
   ['Puis-je voir si le patient a ouvert son lien ?', 'Oui. Le tableau de bord distingue les consentements envoyés, les liens ouverts, les vidéos visionnées et les documents signés.'],
   ['Puis-je faire signer un devis ?', 'Oui, avec les offres Pro et Clinique. Vous déposez le devis exporté de votre logiciel au format PDF. Le patient le lit, peut le télécharger pour sa mutuelle, puis le signe en ligne. Vous choisissez d’envoyer le consentement, le devis, ou les deux.'],
-  ['Puis-je utiliser le formulaire de consentement de mon cabinet ?', 'Oui. Vous déposez votre formulaire au format PDF pour chaque acte. Le patient le lit avant de signer, et le PDF signé reprend votre formulaire suivi d’une page de signature avec votre signature ou votre tampon.'],
+  ['Puis-je utiliser le formulaire de consentement de mon cabinet ?', 'Oui. Vous déposez votre formulaire au format PDF pour chaque acte. Le patient visionne la vidéo de son acte puis signe, et le PDF signé reprend votre formulaire suivi d’une page de signature avec votre signature ou votre tampon.'],
   ['Peut-on utiliser Woui à plusieurs praticiens ?', 'Oui, avec l’offre Clinique. Chaque praticien du cabinet a son profil : il le choisit à l’ouverture de Woui, retrouve ses propres consentements, et son nom figure sur les e-mails et les PDF signés.'],
   ['Puis-je relancer un patient ?', 'Vous pouvez renvoyer le lien du consentement depuis votre tableau de bord lorsqu’une signature est en attente.'],
   ['Comment récupérer un consentement signé ?', 'Ouvrez le consentement signé dans l’espace praticien pour accéder au PDF horodaté associé au dossier.'],
