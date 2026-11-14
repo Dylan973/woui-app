@@ -253,6 +253,8 @@ export function SignaturePage() {
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [justSigned, setJustSigned] = useState(false)
+  // Après signature : le patient peut revoir la vidéo (suites de l'acte, conseils), sans effet sur la signature.
+  const [replay, setReplay] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
   const [liveProgress, setLiveProgress] = useState(0)
   const [videoDuration, setVideoDuration] = useState(0)
@@ -496,6 +498,44 @@ export function SignaturePage() {
     </div>
   )
 
+  const replayBlock = withConsent ? (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>Vidéo d'information</div>
+          <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)', margin: '4px 0 0' }}>
+            Revoyez le déroulé de l'acte et les suites habituelles quand vous le souhaitez.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setReplay((v) => !v)}
+          aria-expanded={replay}
+          className="cursor-pointer"
+          style={{
+            padding: '10px 18px',
+            borderRadius: 10,
+            fontSize: 14.5,
+            fontWeight: 500,
+            background: replay ? 'transparent' : 'var(--brand-soft)',
+            color: 'var(--brand-ink)',
+            border: '1px solid var(--line-2)',
+          }}
+        >
+          {replay ? 'Masquer la vidéo' : 'Revoir la vidéo'}
+        </button>
+      </div>
+      {replay && (
+        <div style={{ position: 'relative', marginTop: 18 }}>
+          <VideoPlayer onProgress={() => {}} onViewed={() => {}} alreadyViewed />
+          <span className="pointer-events-none absolute" style={{ left: 14, top: 12, fontSize: 12, color: 'rgba(255,255,255,.34)' }}>
+            {consent.procedure}
+          </span>
+        </div>
+      )}
+    </Card>
+  ) : null
+
   if (alreadySigned && !justSigned) {
     return shell(
       <div style={{ animation: 'wp-fade .3s both' }}>
@@ -528,6 +568,7 @@ export function SignaturePage() {
             {signedDownloads}
           </div>
         </Card>
+        {replayBlock && <div style={{ marginTop: 18 }}>{replayBlock}</div>}
       </div>
     )
   }
@@ -592,6 +633,7 @@ export function SignaturePage() {
             {signedDownloads}
           </div>
         </Card>
+        {replayBlock && <div style={{ marginTop: 18 }}>{replayBlock}</div>}
       </div>
     )
   }
