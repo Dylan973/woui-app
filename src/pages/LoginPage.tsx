@@ -55,7 +55,7 @@ export function LoginPage() {
             Espace praticien
           </h1>
           <p className="text-center text-[0.9375rem]" style={{ color: 'var(--text-secondary)' }}>
-            Connectez-vous pour gérer vos consentements
+            Connectez-vous pour gérer vos envois
           </p>
         </div>
 
