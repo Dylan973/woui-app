@@ -1,16 +1,48 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
-import { contentBox, exportSignature, rotateCanvas, type Crop } from '../../lib/signatureImport'
+import {
+  cleanSignature,
+  exportSignature,
+  FULL_CROP,
+  rotateQuarter,
+  SignatureImportError,
+  SMALL_INK_WIDTH,
+  type CleanLevel,
+  type CleanResult,
+  type Crop,
+} from '../../lib/signatureImport'
 
 type Handle = 'move' | 'nw' | 'ne' | 'sw' | 'se'
 
-const MIN = 0.04
-
+const MIN = 0.05
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
+const LEVEL_LABELS: [CleanLevel, string][] = [
+  ['light', 'Léger'],
+  ['normal', 'Standard'],
+  ['strong', 'Fort'],
+]
+
+/** Cadre d'aperçu « comme sur le document » : même proportion que le cadre de signature des PDF Woui. */
+export function SignatureDocPreview({ children, label = 'Signature et tampon du praticien' }: { children: React.ReactNode; label?: string }) {
+  return (
+    <div className="w-full max-w-[300px]">
+      <div className="mb-[6px] text-[11px]" style={{ color: '#6b6b80' }}>
+        {label}
+      </div>
+      <div
+        className="flex aspect-[5/2] w-full items-center justify-center p-[10px]"
+        style={{ background: '#ffffff', border: '1px solid #d9d9e3', borderRadius: 2 }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /**
- * Éditeur de la signature et du tampon importés : pivoter (quart de tour et réglage fin),
- * zoomer et rogner (cadre déplaçable, coins redimensionnables).
+ * Réglage de la signature et du tampon importés. Woui nettoie le scan tout seul (fond, bords de feuille,
+ * poussières) et recadre au plus près ; le praticien peut pivoter, régler le nettoyage ou rogner à la main.
  */
 export function SignatureEditor({
   source,
@@ -24,47 +56,59 @@ export function SignatureEditor({
   onConfirm: (image: Blob) => void
 }) {
   const [quarter, setQuarter] = useState(0)
-  const [fine, setFine] = useState(0)
-  const [zoom, setZoom] = useState(1)
-  const angle = quarter * 90 + fine
-  const rotated = useMemo(() => rotateCanvas(source, angle), [source, angle])
-  const [crop, setCrop] = useState<Crop>(() => contentBox(source) ?? { x: 0, y: 0, w: 1, h: 1 })
-  const displayRef = useRef<HTMLCanvasElement>(null)
+  const [level, setLevel] = useState<CleanLevel>('normal')
+  const [result, setResult] = useState<CleanResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [working, setWorking] = useState(true)
+  const [crop, setCrop] = useState<Crop>(FULL_CROP)
+  const [cropping, setCropping] = useState(false)
   const stageRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef<HTMLDivElement>(null)
+  const mainRef = useRef<HTMLCanvasElement>(null)
+  const docRef = useRef<HTMLCanvasElement>(null)
   const drag = useRef<{ handle: Handle; startX: number; startY: number; start: Crop } | null>(null)
 
-  // Aperçu : l'image tournée, réduite pour l'écran.
+  // Nettoyage (quelques centaines de ms) : lancé après l'affichage de « Préparation… ».
   useEffect(() => {
-    const canvas = displayRef.current
-    if (!canvas) return
-    const scale = Math.min(1, 1400 / rotated.width)
-    canvas.width = Math.round(rotated.width * scale)
-    canvas.height = Math.round(rotated.height * scale)
+    setWorking(true)
+    const id = window.setTimeout(() => {
+      try {
+        setResult(cleanSignature(rotateQuarter(source, quarter), level))
+        setError(null)
+      } catch (e) {
+        setResult(null)
+        setError(e instanceof SignatureImportError ? e.message : 'Ce fichier n’a pas pu être traité. Essayez un autre scan.')
+      }
+      setCrop(FULL_CROP)
+      setCropping(false)
+      setWorking(false)
+    }, 30)
+    return () => window.clearTimeout(id)
+  }, [source, quarter, level])
+
+  // Grand aperçu : l'image nettoyée entière (le cadre de rognage s'affiche par-dessus).
+  useEffect(() => {
+    const canvas = mainRef.current
+    if (!canvas || !result) return
+    canvas.width = result.image.width
+    canvas.height = result.image.height
     const context = canvas.getContext('2d')!
     context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(rotated, 0, 0, canvas.width, canvas.height)
-  }, [rotated])
+    context.drawImage(result.image, 0, 0)
+  }, [result])
 
-  // Le cadre reste visible : à l'ouverture, après une rotation ou un zoom, la vue se centre dessus.
+  // Aperçu sur le document : la partie gardée seulement.
   useEffect(() => {
-    const view = viewRef.current
-    if (!view) return
-    const id = requestAnimationFrame(() => {
-      view.scrollLeft = (crop.x + crop.w / 2) * view.scrollWidth - view.clientWidth / 2
-      view.scrollTop = (crop.y + crop.h / 2) * view.scrollHeight - view.clientHeight / 2
-    })
-    return () => cancelAnimationFrame(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, rotated])
-
-  // Après une rotation, le cadre se replace autour de la signature et du tampon.
-  const reframe = (next: HTMLCanvasElement) => setCrop(contentBox(next) ?? { x: 0, y: 0, w: 1, h: 1 })
-  const turn = (delta: number) => {
-    const q = (quarter + delta + 4) % 4
-    setQuarter(q)
-    reframe(rotateCanvas(source, q * 90 + fine))
-  }
+    const canvas = docRef.current
+    if (!canvas || !result) return
+    const { image } = result
+    const sw = Math.max(1, Math.round(crop.w * image.width))
+    const sh = Math.max(1, Math.round(crop.h * image.height))
+    canvas.width = sw
+    canvas.height = sh
+    const context = canvas.getContext('2d')!
+    context.clearRect(0, 0, sw, sh)
+    context.drawImage(image, Math.round(crop.x * image.width), Math.round(crop.y * image.height), sw, sh, 0, 0, sw, sh)
+  }, [result, crop])
 
   const onPointerDown = (handle: Handle) => (e: React.PointerEvent) => {
     e.preventDefault()
@@ -102,134 +146,190 @@ export function SignatureEditor({
     drag.current = null
   }
 
-  const confirm = async () => onConfirm(await exportSignature(rotated, crop))
+  const confirm = async () => {
+    if (!result) return
+    try {
+      onConfirm(await exportSignature(result.image, crop))
+    } catch (e) {
+      setError(e instanceof SignatureImportError ? e.message : 'La signature n’a pas pu être préparée.')
+    }
+  }
 
   const corner = (handle: Handle, style: React.CSSProperties) => (
     <span
       role="presentation"
       onPointerDown={onPointerDown(handle)}
-      className="absolute h-4 w-4 touch-none"
+      className="absolute h-[14px] w-[14px] touch-none"
       style={{
         ...style,
         background: '#ffffff',
         border: '2px solid var(--accent)',
-        borderRadius: 3,
+        borderRadius: 2,
         cursor: handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize',
       }}
     />
   )
 
-  const tool = (label: string, onClick: () => void, title: string) => (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-[3px] px-2 text-[15px]"
-      style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
-    >
-      {label}
-    </button>
-  )
+  const chip = (active: boolean): React.CSSProperties => ({
+    background: active ? 'var(--action-primary)' : 'var(--surface-card)',
+    color: active ? 'var(--action-primary-text)' : 'var(--text-secondary)',
+    border: `1px solid ${active ? 'transparent' : 'var(--border-default)'}`,
+  })
+
+  const small = result !== null && result.inkWidth < SMALL_INK_WIDTH
+  const cropped = crop.x !== 0 || crop.y !== 0 || crop.w !== 1 || crop.h !== 1
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-        <div className="flex items-center gap-2">
-          {tool('⟲', () => turn(-1), 'Pivoter d’un quart de tour à gauche')}
-          {tool('⟳', () => turn(1), 'Pivoter d’un quart de tour à droite')}
-        </div>
-        <label className="flex items-center gap-2">
-          Redresser
-          <input
-            type="range"
-            min={-15}
-            max={15}
-            step={0.5}
-            value={fine}
-            onChange={(e) => setFine(Number(e.target.value))}
-            onPointerUp={() => reframe(rotateCanvas(source, quarter * 90 + fine))}
-            aria-label="Redresser l’image"
-            style={{ accentColor: 'var(--accent)', width: 120 }}
-          />
-          <span className="font-mono w-[42px] tabular-nums">{fine > 0 ? '+' : ''}{fine}°</span>
-        </label>
-        <label className="flex items-center gap-2">
-          Zoom
-          <input
-            type="range"
-            min={1}
-            max={4}
-            step={0.1}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            aria-label="Zoomer"
-            style={{ accentColor: 'var(--accent)', width: 120 }}
-          />
-          <span className="font-mono w-[36px] tabular-nums">×{zoom.toFixed(1)}</span>
-        </label>
-        <button
-          type="button"
-          onClick={() => reframe(rotated)}
-          className="cursor-pointer text-[13px] underline"
-          style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
-        >
-          Recadrer automatiquement
-        </button>
-      </div>
-
-      <div
-        ref={viewRef}
-        className="max-h-[420px] max-w-[640px] overflow-auto"
-        style={{
-          backgroundColor: '#ffffff',
-          backgroundImage:
-            'linear-gradient(45deg,#f1f1f4 25%,transparent 25%,transparent 75%,#f1f1f4 75%),linear-gradient(45deg,#f1f1f4 25%,transparent 25%,transparent 75%,#f1f1f4 75%)',
-          backgroundSize: '16px 16px',
-          backgroundPosition: '0 0,8px 8px',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 4,
-        }}
-      >
-        <div ref={stageRef} className="relative select-none" style={{ width: `${zoom * 100}%` }} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
-          <canvas ref={displayRef} className="block h-auto w-full" />
-          {/* Voile hors du cadre */}
+    <div className="max-w-[760px]">
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px] md:items-start">
+        {/* Résultat nettoyé, sur papier blanc */}
+        <div className="min-w-0">
           <div
-            className="pointer-events-none absolute"
-            style={{
-              left: `${crop.x * 100}%`,
-              top: `${crop.y * 100}%`,
-              width: `${crop.w * 100}%`,
-              height: `${crop.h * 100}%`,
-              boxShadow: '0 0 0 9999px rgba(23,23,52,0.45)',
-            }}
-          />
-          <div
-            role="presentation"
-            onPointerDown={onPointerDown('move')}
-            className="absolute touch-none"
-            style={{
-              left: `${crop.x * 100}%`,
-              top: `${crop.y * 100}%`,
-              width: `${crop.w * 100}%`,
-              height: `${crop.h * 100}%`,
-              border: '2px dashed var(--accent)',
-              cursor: 'move',
-            }}
+            className="relative flex min-h-[220px] items-center justify-center p-6"
+            style={{ background: '#ffffff', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
           >
-            {corner('nw', { left: -8, top: -8 })}
-            {corner('ne', { right: -8, top: -8 })}
-            {corner('sw', { left: -8, bottom: -8 })}
-            {corner('se', { right: -8, bottom: -8 })}
+            {working && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center text-[13px]" style={{ background: 'rgba(255,255,255,0.85)', color: '#4b4b63' }}>
+                Nettoyage du scan…
+              </div>
+            )}
+            {result ? (
+              <div ref={stageRef} className="relative inline-block max-w-full select-none" onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+                <canvas ref={mainRef} className="block h-auto max-h-[260px] w-auto max-w-full" />
+                {cropping && (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                      <div
+                        className="absolute"
+                        style={{
+                          left: `${crop.x * 100}%`,
+                          top: `${crop.y * 100}%`,
+                          width: `${crop.w * 100}%`,
+                          height: `${crop.h * 100}%`,
+                          boxShadow: '0 0 0 9999px rgba(255,255,255,0.78)',
+                        }}
+                      />
+                    </div>
+                    <div
+                      role="presentation"
+                      onPointerDown={onPointerDown('move')}
+                      className="absolute touch-none"
+                      style={{
+                        left: `${crop.x * 100}%`,
+                        top: `${crop.y * 100}%`,
+                        width: `${crop.w * 100}%`,
+                        height: `${crop.h * 100}%`,
+                        border: '1.5px solid var(--accent)',
+                        cursor: 'move',
+                      }}
+                    >
+                      {corner('nw', { left: -7, top: -7 })}
+                      {corner('ne', { right: -7, top: -7 })}
+                      {corner('sw', { left: -7, bottom: -7 })}
+                      {corner('se', { right: -7, bottom: -7 })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              !working && (
+                <p className="m-0 max-w-[380px] text-center text-[13px]" style={{ color: 'var(--danger-text)' }}>
+                  {error}
+                </p>
+              )
+            )}
           </div>
+
+          {/* Réglages */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+            <button
+              type="button"
+              onClick={() => setQuarter((q) => (q + 1) % 4)}
+              disabled={working}
+              className="flex cursor-pointer items-center gap-2 rounded-[3px] px-3 py-[7px]"
+              style={chip(false)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-3-6.7" />
+                <path d="M21 4v5h-5" />
+              </svg>
+              Pivoter
+            </button>
+            <button
+              type="button"
+              onClick={() => setCropping((c) => !c)}
+              disabled={working || !result}
+              aria-pressed={cropping}
+              className="flex cursor-pointer items-center gap-2 rounded-[3px] px-3 py-[7px]"
+              style={chip(cropping)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+              </svg>
+              {cropping ? 'Terminer le rognage' : 'Rogner'}
+            </button>
+            <div className="flex items-center gap-2" role="group" aria-label="Nettoyage du fond">
+              <span>Nettoyage du fond</span>
+              <div className="flex overflow-hidden rounded-[3px]" style={{ border: '1px solid var(--border-default)' }}>
+                {LEVEL_LABELS.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setLevel(value)}
+                    disabled={working}
+                    aria-pressed={level === value}
+                    className="cursor-pointer px-3 py-[6px] text-[12.5px]"
+                    style={{
+                      background: level === value ? 'var(--surface-card-alt)' : 'var(--surface-card)',
+                      color: level === value ? 'var(--text-primary)' : 'var(--text-muted)',
+                      fontWeight: level === value ? 600 : 400,
+                      border: 0,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {cropped && !cropping && (
+              <button type="button" onClick={() => setCrop(FULL_CROP)} className="cursor-pointer" style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}>
+                Annuler le rognage
+              </button>
+            )}
+          </div>
+          <p className="mb-0 mt-3 text-[12.5px] leading-[1.5]" style={{ color: 'var(--text-muted)' }}>
+            {cropping
+              ? 'Déplacez le cadre ou ses coins pour ne garder que la signature et le tampon.'
+              : 'Woui retire le fond, les bords de la feuille et les poussières, puis recadre au plus près. Trait trop pâle : « Léger ». Fond gris ou taché : « Fort ».'}
+          </p>
+        </div>
+
+        {/* Rendu final */}
+        <div>
+          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
+            Sur vos documents
+          </div>
+          <SignatureDocPreview>{result && <canvas ref={docRef} className="block max-h-full max-w-full" style={{ objectFit: 'contain' }} />}</SignatureDocPreview>
+          {result && (
+            <ul className="m-0 mt-3 flex list-none flex-col gap-[6px] p-0 text-[12.5px] leading-[1.45]">
+              {result.removed > 0 && (
+                <li style={{ color: 'var(--text-secondary)' }}>
+                  ✓ {result.removed} trace{result.removed > 1 ? 's' : ''} parasite{result.removed > 1 ? 's' : ''} retirée{result.removed > 1 ? 's' : ''}
+                </li>
+              )}
+              <li style={{ color: small ? 'var(--warning-text, #b5651d)' : 'var(--text-secondary)' }}>
+                {small
+                  ? 'Signature petite sur ce scan : elle peut manquer de netteté. Signez plus grand ou photographiez de plus près.'
+                  : '✓ Netteté suffisante pour les documents'}
+              </li>
+            </ul>
+          )}
         </div>
       </div>
-      <p className="mb-4 mt-2 text-[12.5px]" style={{ color: 'var(--text-muted)' }}>
-        Faites glisser le cadre ou ses coins pour ne garder que le tampon et la signature.
-      </p>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="primary" onClick={confirm} disabled={busy}>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button variant="primary" onClick={confirm} disabled={busy || working || !result}>
           {busy ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
         <button type="button" onClick={onCancel} disabled={busy} className="cursor-pointer text-[13px]" style={{ background: 'none', border: 0, color: 'var(--text-muted)' }}>

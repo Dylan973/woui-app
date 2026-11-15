@@ -689,7 +689,14 @@ export function DashboardPage() {
                   type="button"
                   onClick={() => toggleGroup(g.key)}
                   className="absolute bottom-[-6px] left-1/2 z-[1] -translate-x-1/2 cursor-pointer whitespace-nowrap rounded-full px-4 py-[6px] text-[12.5px] font-semibold"
-                  style={{ background: 'var(--action-primary)', color: 'var(--action-primary-text)', border: 0, boxShadow: '0 6px 18px rgba(0,0,0,0.15)' }}
+                  style={{
+                    background: 'var(--action-primary)',
+                    color: 'var(--action-primary-text)',
+                    border: 0,
+                    // Halo de la même couleur, flouté et transparent, sous le bouton : attire l'œil sans alourdir.
+                    boxShadow:
+                      '0 10px 22px -4px color-mix(in srgb, var(--action-primary) 55%, transparent), 0 18px 34px -10px color-mix(in srgb, var(--action-primary) 40%, transparent)',
+                  }}
                 >
                   +{g.items.length - 1} autre{g.items.length > 2 ? 's' : ''} envoi{g.items.length > 2 ? 's' : ''} pour ce patient · Afficher
                 </button>

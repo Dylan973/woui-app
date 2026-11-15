@@ -16,14 +16,16 @@ import { ArchiveCard } from '../components/settings/ArchiveCard'
 import { CabinetInfoCard, PractitionerInfoCard } from '../components/settings/CabinetProfileCards'
 import { TeamSeats } from '../components/settings/TeamSeats'
 import { TeamList } from '../components/settings/TeamList'
+import { BillingTab } from '../components/settings/BillingTab'
 
-type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'notifications' | 'security'
+type TabId = 'profile' | 'team' | 'documents' | 'plan' | 'billing' | 'notifications' | 'security'
 
 const TABS: { id: TabId; label: string; soon?: boolean }[] = [
   { id: 'profile', label: 'Profil' },
   { id: 'team', label: 'Équipe' },
   { id: 'documents', label: 'Documents PDF' },
   { id: 'plan', label: 'Abonnement' },
+  { id: 'billing', label: 'Facturation' },
   { id: 'notifications', label: 'Notifications', soon: true },
   { id: 'security', label: 'Sécurité' },
 ]
@@ -57,9 +59,11 @@ function Eyebrow({ children }: { children: string }) {
 
 export function SettingsPage() {
   const { doctor, consents, showToast, refetchDoctor, profiles, profilesEnabled } = useOutletContext<DashboardOutletContext>()
-  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling, isCabinet, practitionersApi, practitionerPlaces } =
+  const { activeProfile, pinApi, pinEnabled, onSignatureSaved, profileOf, canManageBilling, isCabinet, practitionersApi, practitionerPlaces, cabinetView } =
     useOutletContext<DashboardOutletContext>()
   const cabinetSpace = isCabinet && activeProfile.isMain
+  // Archive : tout le cabinet depuis la vue cabinet (Gestion du cabinet, ou « Tout le cabinet » du titulaire), sinon le profil ouvert.
+  const archiveAll = profiles.length < 2 || cabinetView
   // Équipe : visible et modifiable uniquement par l'administrateur (Gestion du cabinet, ou titulaire en offre Pro).
   const teamVisible = isCabinet ? cabinetSpace : activeProfile.isMain
   const navigate = useNavigate()
@@ -191,7 +195,7 @@ export function SettingsPage() {
       </h1>
 
       <div className="mb-9 flex flex-wrap gap-1">
-        {TABS.filter((t) => t.id !== 'team' || teamVisible).map((t) => {
+        {TABS.filter((t) => (t.id !== 'team' || teamVisible) && (t.id !== 'billing' || canManageBilling)).map((t) => {
           const active = tab === t.id
           return (
             <button
@@ -410,7 +414,10 @@ export function SettingsPage() {
             {doctor.stripe_customer_id && canManageBilling && (
               <div className="mt-5">
                 <Button variant="ghost" onClick={manageBilling} disabled={billingBusy !== null}>
-                  {billingBusy === 'portal' ? 'Ouverture…' : 'Factures, carte et résiliation'}
+                  {billingBusy === 'portal' ? 'Ouverture…' : 'Carte, changement d’offre et résiliation'}
+                </Button>
+                <Button variant="ghost" onClick={() => setTab('billing')} className="ml-2">
+                  Voir les factures
                 </Button>
               </div>
             )}
@@ -517,6 +524,8 @@ export function SettingsPage() {
         </div>
       )}
 
+      {tab === 'billing' && canManageBilling && <BillingTab doctor={doctor} showToast={showToast} />}
+
       {tab === 'documents' && (
         <div className="flex flex-col gap-[22px]">
           <DocumentsTab
@@ -530,7 +539,14 @@ export function SettingsPage() {
           <ArchiveCard
             doctorId={doctor.id}
             accountCreatedAt={doctor.created_at}
-            allowed={activeProfile.isMain}
+            scope={archiveAll ? null : (id) => profileOf(id).id === activeProfile.id}
+            scopeLabel={
+              profiles.length < 2
+                ? null
+                : archiveAll
+                  ? 'Archive de tout le cabinet : un dossier par praticien.'
+                  : `Archive des documents envoyés par ${profileName(activeProfile)} uniquement.`
+            }
             practitionerName={(id) => profileName(profileOf(id))}
             showToast={showToast}
             initialYear={Number(searchParams.get('archive')) || null}

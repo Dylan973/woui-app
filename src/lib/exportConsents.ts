@@ -39,24 +39,30 @@ export function exportReminderKey(doctorId: string, year: number) {
   return `woui-archive-${doctorId}-${year}`
 }
 
-export async function countSignedInYear(doctorId: string, year: number): Promise<number> {
-  const { count } = await supabase
+/** Filtre par profil : seuls les envois de ce praticien (null : tout le cabinet). */
+export type ArchiveScope = ((practitionerId: string | null) => boolean) | null
+
+export async function countSignedInYear(doctorId: string, year: number, scope: ArchiveScope = null): Promise<number> {
+  const { data } = await supabase
     .from('consents')
-    .select('id', { count: 'exact', head: true })
+    .select('practitioner_id')
     .eq('doctor_id', doctorId)
     .eq('status', 'signed')
     .gte('signed_at', `${year}-01-01T00:00:00Z`)
     .lt('signed_at', `${year + 1}-01-01T00:00:00Z`)
-  return count ?? 0
+    .limit(10000)
+  const rows = (data ?? []) as { practitioner_id: string | null }[]
+  return scope ? rows.filter((r) => scope(r.practitioner_id)).length : rows.length
 }
 
 export async function exportYear(
   doctorId: string,
   year: number,
   practitionerName: (practitionerId: string | null) => string,
-  onProgress: (p: ExportProgress) => void
+  onProgress: (p: ExportProgress) => void,
+  scope: ArchiveScope = null
 ): Promise<{ error: string | null; count: number }> {
-  const rows: ExportRow[] = []
+  let rows: ExportRow[] = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from('consents')
@@ -71,7 +77,11 @@ export async function exportYear(
     rows.push(...((data ?? []) as ExportRow[]))
     if (!data || data.length < 1000) break
   }
+  if (scope) rows = rows.filter((r) => scope(r.practitioner_id))
   if (rows.length === 0) return { error: `Aucun document signé en ${year}.`, count: 0 }
+  // Archive de tout le cabinet : un dossier par praticien, sans mélange.
+  const byPractitioner = !scope && new Set(rows.map((r) => practitionerName(r.practitioner_id))).size > 1
+  const folder = (row: ExportRow) => (byPractitioner ? `${slug(practitionerName(row.practitioner_id))}/` : '')
 
   const jobs: { path: string; name: string }[] = []
   const used = new Set<string>()
@@ -88,12 +98,12 @@ export async function exportYear(
     const day = row.signed_at.slice(0, 10)
     const files: string[] = []
     if (row.pdf_url) {
-      const name = unique(`${day}_${slug(row.patient)}_consentement.pdf`)
+      const name = unique(`${folder(row)}${day}_${slug(row.patient)}_consentement.pdf`)
       jobs.push({ path: row.pdf_url, name })
       files.push(name)
     }
     if (row.quote_pdf_url) {
-      const name = unique(`${day}_${slug(row.patient)}_devis.pdf`)
+      const name = unique(`${folder(row)}${day}_${slug(row.patient)}_devis.pdf`)
       jobs.push({ path: row.quote_pdf_url, name })
       files.push(name)
     }

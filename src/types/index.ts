@@ -203,6 +203,8 @@ export interface Plan {
 /** Fiche patient : un patient par compte (nom et prénom + date de naissance). */
 export interface Patient {
   id: string
+  /** Profil praticien propriétaire de la fiche (null : titulaire du compte). */
+  practitioner_id?: string | null
   full_name: string
   birth_date: string | null
   email: string | null

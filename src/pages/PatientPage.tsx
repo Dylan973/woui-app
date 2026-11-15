@@ -124,6 +124,7 @@ export function PatientPage() {
               ['Email', info.email || '—'],
               ['Téléphone', info.phone || '—'],
               ['Envois', String(sends.length)],
+              ...(profilesEnabled ? [['Praticien', profileName(profileOf(patient.practitioner_id ?? null))]] : []),
             ].map(([label, value]) => (
               <div key={label}>
                 <div className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>

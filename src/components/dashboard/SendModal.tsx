@@ -169,11 +169,13 @@ interface SendModalProps {
   senders?: Profile[] | null
   /** Fiches patients connues : proposées pendant la saisie du nom. */
   patients?: Patient[]
+  /** Profil propriétaire d'une fiche : l'autocomplétion ne propose que les patients du praticien choisi. */
+  patientOwner?: (p: Patient) => string
   /** Patient choisi à l'avance (depuis sa fiche). */
   initialPatient?: Patient | null
 }
 
-export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId, senders, patients = [], initialPatient = null }: SendModalProps) {
+export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled, doctorId, senders, patients = [], patientOwner, initialPatient = null }: SendModalProps) {
   const navigate = useNavigate()
   const [form, setForm] = useState<NewConsentForm>({
     patient: initialPatient?.full_name ?? '',
@@ -194,6 +196,8 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
   const hasTemplate = templates.some((t) => (t.category ?? 'consent') === 'consent' && t.procedure === form.procedure)
   const postopTemplate = templates.find((t) => t.category === 'postop' && t.procedure === form.procedure)
   const [senderId, setSenderId] = useState<string | null>(null)
+  const sendAs = senderId ?? senders?.[0]?.id ?? null
+  const senderPatients = senders && sendAs && patientOwner ? patients.filter((p) => patientOwner(p) === sendAs) : patients
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -347,7 +351,7 @@ export function SendModal({ onClose, onSend, planId, used, limit, quotesEnabled,
             <div className="grid gap-x-5 sm:grid-cols-2">
             <PatientNameField
               value={form.patient}
-              patients={patients}
+              patients={senderPatients}
               onChange={(v) => set('patient', v)}
               onPick={(p) =>
                 setForm((f) => ({ ...f, patient: p.full_name, email: p.email ?? f.email, phone: p.phone ?? f.phone, birthDate: p.birth_date ?? f.birthDate }))

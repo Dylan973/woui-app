@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Patient } from '../types'
 
-/** Fiches patients du compte (créées automatiquement à chaque envoi). */
+/** Fiches patients du compte (créées automatiquement à chaque envoi), une base par profil praticien. */
 export function usePatients(doctorId: string | null) {
   const [patients, setPatients] = useState<Patient[]>([])
 
@@ -13,7 +13,7 @@ export function usePatients(doctorId: string | null) {
     }
     const { data } = await supabase
       .from('patients')
-      .select('id, full_name, birth_date, email, phone, updated_at')
+      .select('id, practitioner_id, full_name, birth_date, email, phone, updated_at')
       .eq('doctor_id', doctorId)
       .order('updated_at', { ascending: false })
     setPatients((data ?? []) as Patient[])

@@ -280,6 +280,9 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   const showCabinet = cabinetViewAvailable && (cabinetView || isCabinet)
   const consents =
     multiProfile && !showCabinet ? allConsents.filter((c) => ownerOf(c.practitioner_id) === activeProfile.id) : allConsents
+  // Chaque profil a sa propre base patients ; la vue « Tout le cabinet » les voit toutes.
+  const visiblePatients =
+    multiProfile && !showCabinet ? patients.filter((p) => ownerOf(p.practitioner_id ?? null) === activeProfile.id) : patients
 
   const selectProfile = (profileId: string) => {
     // La session « Gestion du cabinet » ne suit pas vers le profil d'un praticien.
@@ -345,7 +348,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
       setSendPatient(patient ?? null)
       setShowSend(true)
     },
-    patients,
+    patients: visiblePatients,
     showToast,
     refetchDoctor,
     profiles,
@@ -401,7 +404,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
         profilesEnabled={profilesEnabled}
         multiProfile={multiProfile}
         canSend={activeProfile.kind !== 'cabinet'}
-        patients={patients}
+        patients={visiblePatients}
         onOpenSendModal={() => {
           setSendPatient(null)
           setShowSend(true)
@@ -427,7 +430,8 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           quotesEnabled={canSendQuotes(doctor)}
           doctorId={doctor.id}
           senders={cabinetViewAvailable && !isCabinet ? profiles : null}
-          patients={patients}
+          patients={cabinetViewAvailable && !isCabinet ? patients : visiblePatients}
+          patientOwner={(p) => ownerOf(p.practitioner_id ?? null)}
           initialPatient={sendPatient}
           used={countThisMonth(allConsents)}
           limit={plan.limits.consents}
