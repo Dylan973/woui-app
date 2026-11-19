@@ -15,7 +15,7 @@ const sizes: Record<Size, string> = {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-[3px] font-semibold font-sans transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45'
+  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold font-sans transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45'
 
 const variants: Record<Variant, string> = {
   primary:

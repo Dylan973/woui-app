@@ -82,7 +82,7 @@ function PatientNameField({
         <div
           role="listbox"
           className="absolute left-0 right-0 top-[76px] z-10 p-1"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-pop)', boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
         >
           <div className="font-mono px-3 pb-1 pt-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
             Patients déjà connus

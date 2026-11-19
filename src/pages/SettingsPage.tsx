@@ -194,20 +194,22 @@ export function SettingsPage() {
         Paramètres
       </h1>
 
-      <div className="mb-9 flex flex-wrap gap-1">
+      <div
+        className="mb-9 inline-flex max-w-full flex-wrap gap-1 rounded-[24px] p-[5px]"
+        style={{ background: 'var(--pill-track)', border: '1px solid var(--glass-border)' }}
+      >
         {TABS.filter((t) => (t.id !== 'team' || teamVisible) && (t.id !== 'billing' || canManageBilling)).map((t) => {
           const active = tab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="flex flex-shrink-0 items-center gap-[9px] px-4 py-[10px] text-[0.9375rem]"
+              className="flex flex-shrink-0 items-center gap-[9px] rounded-full px-4 py-[8px] text-[0.9375rem] transition-[background,box-shadow] duration-200"
               style={{
-                background: active ? 'var(--surface-card-alt)' : 'none',
+                background: active ? 'var(--pill-active)' : 'none',
                 border: 'none',
-                borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
-                borderRadius: 3,
-                color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: active ? '0 1px 2px rgba(23,23,52,0.08), 0 6px 16px -8px rgba(108,92,231,0.45)' : 'none',
+                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -227,7 +229,7 @@ export function SettingsPage() {
       {tab === 'profile' && !isCabinet && (
         <div
           className="p-[clamp(1.5rem,4vw,36px)]"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', animation: 'nb-rise 0.35s var(--ease-standard) both' }}
         >
           <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
             Informations du praticien
@@ -302,7 +304,7 @@ export function SettingsPage() {
       {tab === 'team' && teamVisible && (
         <div
           className="p-[clamp(1.5rem,4vw,36px)]"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', animation: 'nb-rise 0.35s var(--ease-standard) both' }}
         >
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
@@ -351,7 +353,7 @@ export function SettingsPage() {
           {!canManageBilling && (
             <div
               className="mb-[22px] flex items-start gap-3 px-5 py-4 text-[0.9375rem]"
-              style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-secondary)' }}
+              style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', color: 'var(--text-secondary)' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" className="mt-[3px] flex-none">
                 <rect x="4" y="10" width="16" height="11" rx="2" />
@@ -366,7 +368,7 @@ export function SettingsPage() {
           )}
           <div
             className="mb-[22px] p-[28px_32px]"
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <div>
@@ -452,7 +454,7 @@ export function SettingsPage() {
                   style={{
                     background: 'var(--surface-card)',
                     border: `1px solid ${isCurrent ? 'var(--action-accent)' : 'var(--border-subtle)'}`,
-                    borderRadius: 4,
+                    borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)',
                   }}
                 >
                   {isCurrent && (
@@ -557,7 +559,7 @@ export function SettingsPage() {
       {tab === 'security' && (
         <div
           className="p-[clamp(1.5rem,4vw,36px)]"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', animation: 'nb-rise 0.35s var(--ease-standard) both' }}
         >
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-display text-[22px]" style={{ color: 'var(--text-primary)' }}>
@@ -631,7 +633,7 @@ export function SettingsPage() {
       {soonTitle && (
         <div
           className="p-[64px_40px] text-center"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, animation: 'nb-rise 0.35s var(--ease-standard) both' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', animation: 'nb-rise 0.35s var(--ease-standard) both' }}
         >
           <div className="font-mono text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-accent)' }}>
             Bientôt

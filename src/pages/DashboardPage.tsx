@@ -229,7 +229,7 @@ export function DashboardPage() {
       <article
         key={c.id}
         className="grid grid-cols-[26px_1fr] gap-5 p-[24px_26px] transition-colors"
-        style={{ background: 'var(--surface-card)', border: `1px solid ${alert ? 'var(--danger-border)' : 'var(--border-subtle)'}`, borderRadius: 4 }}
+        style={{ background: 'var(--surface-card)', border: `1px solid ${alert ? 'var(--danger-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
       >
         <div className="flex flex-col items-center pt-[6px]">
           {[0, 1, 2, 3].map((i) => {
@@ -447,7 +447,7 @@ export function DashboardPage() {
                     setCabinetView(on as boolean)
                     setPractitionerFilter('all')
                   }}
-                  className="cursor-pointer rounded-[3px] px-[14px] py-[7px] text-[0.8125rem] font-semibold"
+                  className="cursor-pointer rounded-full px-[14px] py-[7px] text-[0.8125rem] font-semibold"
                   style={{
                     background: active ? 'var(--action-primary)' : 'transparent',
                     color: active ? 'var(--action-primary-text)' : 'var(--text-secondary)',
@@ -497,7 +497,7 @@ export function DashboardPage() {
         <div
           role="alert"
           className="mb-[22px] flex flex-wrap items-center gap-x-5 gap-y-3 p-[18px_22px]"
-          style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 4 }}
+          style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger-text)" strokeWidth="1.8" aria-hidden="true">
             <path d="M12 9v4M12 17h.01" />
@@ -528,7 +528,7 @@ export function DashboardPage() {
         {!manager && (
         <div
           className="relative overflow-hidden p-[clamp(1.5rem,4vw,36px)]"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
         >
           <div
             className="pointer-events-none absolute -right-[60px] -top-[80px] h-[260px] w-[260px] rounded-full"
@@ -569,7 +569,7 @@ export function DashboardPage() {
 
         <div
           className={`grid grid-cols-2 gap-px overflow-hidden ${manager ? 'lg:grid-cols-4' : ''}`}
-          style={{ background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+          style={{ background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
         >
           {stats.map((s) => (
             <div key={s.label} className="p-[26px_26px_22px]" style={{ background: 'var(--surface-card)' }}>
@@ -614,7 +614,7 @@ export function DashboardPage() {
           {alerts.length > 0 && (
             <button
               onClick={() => setFilter('alert')}
-              className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px] font-semibold"
+              className="font-mono cursor-pointer rounded-full px-[14px] py-[6px] text-[12px] font-semibold"
               style={{
                 background: filter === 'alert' ? 'var(--danger-text)' : 'var(--danger-bg)',
                 color: filter === 'alert' ? '#ffffff' : 'var(--danger-text)',
@@ -631,7 +631,7 @@ export function DashboardPage() {
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className="font-mono cursor-pointer rounded-[3px] px-[14px] py-[6px] text-[12px] font-semibold"
+                className="font-mono cursor-pointer rounded-full px-[14px] py-[6px] text-[12px] font-semibold"
                 style={{
                   background: active ? 'var(--action-primary)' : 'transparent',
                   color: active ? 'var(--action-primary-text)' : 'var(--text-muted)',
@@ -658,7 +658,7 @@ export function DashboardPage() {
       {query && (
         <div
           className="mb-[18px] flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-[0.875rem]"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-secondary)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', color: 'var(--text-secondary)' }}
         >
           <span>
             {rows.length} résultat{rows.length > 1 ? 's' : ''} pour « <b style={{ color: 'var(--text-primary)' }}>{query}</b> »
@@ -679,7 +679,7 @@ export function DashboardPage() {
       ) : rows.length === 0 ? (
         <div
           className="p-12 text-center"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-muted)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', color: 'var(--text-muted)' }}
         >
           {query ? 'Aucun patient ne correspond à cette recherche.' : activeProfile.kind === 'cabinet' ? 'Aucun envoi pour le moment. Les envois de tous les praticiens du cabinet apparaîtront ici.' : 'Aucun envoi pour le moment. Cliquez sur « + Nouvel envoi » pour commencer.'}
         </div>
@@ -727,7 +727,7 @@ export function DashboardPage() {
                       bottom: 8 + (layers - depth) * 9,
                       background: 'var(--surface-card)',
                       border: '1px solid var(--border-default)',
-                      borderRadius: 4,
+                      borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)',
                       opacity: depth === 2 ? 0.5 : 0.8,
                     }}
                   />
@@ -804,14 +804,14 @@ function EnvelopeGrid({ envelopes, loading, onOpen }: { envelopes: Envelope[]; l
                     bottom: (layers - depth) * 8,
                     background: 'var(--surface-card)',
                     border: '1px solid var(--border-default)',
-                    borderRadius: 6,
+                    borderRadius: 'var(--radius-card)',
                     opacity: depth === 2 ? 0.5 : 0.8,
                   }}
                 />
               ))}
               <span
                 className="relative block overflow-hidden transition-transform duration-200 group-hover:-translate-y-[3px]"
-                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
               >
                 {/* Rabat de l'enveloppe, teinté à la couleur du praticien */}
                 <span
@@ -907,7 +907,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
         </p>
         <div
           className="mb-9 p-6 text-left"
-          style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+          style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
         >
           {steps.map((s) => (
             <div key={s.n} className="mb-4 flex items-center gap-4 last:mb-0">

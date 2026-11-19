@@ -5,10 +5,24 @@
 :root,
 [data-theme='light'] {
   /* Surfaces */
-  --surface-page: #f4f5fa;
+  --surface-page: #f1f0fb;
   --surface-card: #ffffff;
   --surface-card-alt: #eeeff9;
   --surface-overlay: rgba(23, 23, 52, 0.55);
+
+  /* Cadre apaisant : coins arrondis, filet clair translucide autour des cartes, fond dégradé lavande */
+  --radius-card: 18px;
+  --radius-pop: 14px;
+  --radius-control: 10px;
+  --card-ring: 0 0 0 5px rgba(255, 255, 255, 0.5), 0 1px 2px rgba(23, 23, 52, 0.04), 0 18px 40px -26px rgba(108, 92, 231, 0.35);
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-ring: 0 0 0 6px rgba(255, 255, 255, 0.35);
+  --pill-track: rgba(108, 92, 231, 0.09);
+  --pill-active: #ffffff;
+  --page-glow-1: rgba(139, 124, 248, 0.5);
+  --page-glow-2: rgba(108, 92, 231, 0.38);
+  --page-glow-3: rgba(186, 176, 255, 0.4);
 
   /* Texte */
   --text-primary: #171734;
@@ -78,6 +92,16 @@
   --surface-card-alt: #232140;
   --surface-overlay: rgba(0, 0, 0, 0.6);
 
+  --card-ring: 0 0 0 5px rgba(255, 255, 255, 0.035), 0 18px 40px -26px rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(26, 24, 44, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-ring: 0 0 0 6px rgba(255, 255, 255, 0.03);
+  --pill-track: rgba(255, 255, 255, 0.06);
+  --pill-active: #2c2950;
+  --page-glow-1: rgba(124, 108, 240, 0.32);
+  --page-glow-2: rgba(80, 64, 200, 0.26);
+  --page-glow-3: rgba(149, 133, 255, 0.14);
+
   /* Texte */
   --text-primary: #f4f3ff;
   --text-secondary: rgba(255, 255, 255, 0.88);
@@ -145,7 +169,12 @@ body,
 body {
   margin: 0;
   font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
-  background: var(--surface-page);
+  background:
+    radial-gradient(1100px 620px at 12% -12%, var(--page-glow-1), transparent 62%),
+    radial-gradient(900px 560px at 92% -6%, var(--page-glow-2), transparent 60%),
+    radial-gradient(1000px 700px at 50% 110%, var(--page-glow-3), transparent 65%),
+    var(--surface-page);
+  background-attachment: fixed;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

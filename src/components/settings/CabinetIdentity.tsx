@@ -101,7 +101,7 @@ export function CabinetIdentity({ doctor, refetchDoctor, showToast, onSeePlans, 
       <div className="mt-6 flex flex-wrap items-center gap-5">
         <div
           className="flex h-[64px] w-[140px] items-center justify-center overflow-hidden"
-          style={{ background: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 4, opacity: logoEnabled ? 1 : 0.5 }}
+          style={{ background: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)', opacity: logoEnabled ? 1 : 0.5 }}
         >
           {logoUrl ? (
             <img src={logoUrl} alt="Logo du cabinet" className="max-h-[52px] max-w-[124px] object-contain" />

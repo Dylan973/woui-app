@@ -10,7 +10,7 @@ import { profileName } from '../lib/profiles'
 import type { DashboardOutletContext } from '../components/layout/AppLayout'
 import type { Consent } from '../types'
 
-const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
+const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }
 
 const KIND_TAGS = (c: Consent) =>
   [

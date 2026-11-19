@@ -64,7 +64,7 @@ function invoiceSubject(inv: Invoice): string {
   return `Abonnement${seats ? ` + ${seats} praticien${seats > 1 ? 's' : ''} en plus` : ''}${period}`
 }
 
-const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
+const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }
 
 const money = (cents: number, currency = 'eur') =>
   (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: currency.toUpperCase(), minimumFractionDigits: cents % 100 ? 2 : 0 })

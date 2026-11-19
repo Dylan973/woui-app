@@ -86,7 +86,7 @@ export function ArchiveCard({
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--border-subtle)",
-        borderRadius: 4,
+        borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)',
       }}
     >
       <h2

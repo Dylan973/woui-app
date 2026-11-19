@@ -109,10 +109,10 @@ export function SignupPage() {
   }
 
   const card = (children: React.ReactNode) => (
-    <div className="flex min-h-screen items-center justify-center p-6" style={{ background: 'var(--surface-page)' }}>
+    <div className="flex min-h-screen items-center justify-center p-6" style={{ background: 'transparent' }}>
       <div
         className="w-full max-w-[460px] p-[clamp(1.75rem,5vw,48px)]"
-        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
       >
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <div className="flex h-9 w-9 items-center justify-center rounded-[3px] p-[7px]" style={{ background: 'var(--action-accent)' }}>

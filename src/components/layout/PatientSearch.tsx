@@ -88,8 +88,8 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
   return (
     <div ref={boxRef} className="relative hidden md:block">
       <label
-        className="flex items-center gap-[9px] rounded-[3px] px-[14px] py-2 text-[13px]"
-        style={{ border: `1px solid ${open ? 'var(--accent)' : 'var(--border-subtle)'}`, color: 'var(--text-muted)', width: 230 }}
+        className="flex h-10 items-center gap-[9px] rounded-full px-[16px] text-[13px]"
+        style={{ border: `1px solid ${open ? 'var(--accent)' : 'var(--glass-border)'}`, background: 'var(--glass-bg)', color: 'var(--text-muted)', width: 240 }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
@@ -150,7 +150,7 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
       {open && (
         <div
           className="absolute right-0 top-[calc(100%+8px)] z-[60] w-[380px] p-3"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-pop)', boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
         >
           <div className="font-mono mb-2 text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>
             Filtrer les patients
@@ -166,7 +166,7 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
                 onChange={(e) => (setV as (s: string) => void)(e.target.value)}
                 placeholder={label as string}
                 aria-label={label as string}
-                className="min-w-0 rounded-[3px] px-[10px] py-2 text-[13px] outline-none"
+                className="min-w-0 rounded-[10px] px-[10px] py-2 text-[13px] outline-none"
                 style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               />
             ))}
@@ -177,7 +177,7 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
                 value={birth}
                 onChange={(e) => setBirth(e.target.value)}
                 aria-label="Date de naissance"
-                className="min-w-0 flex-1 rounded-[3px] px-[10px] py-[7px] text-[13px] outline-none"
+                className="min-w-0 flex-1 rounded-[10px] px-[10px] py-[7px] text-[13px] outline-none"
                 style={{ background: 'var(--surface-card-alt)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               />
               {(lastName || firstName || birth) && (
@@ -212,7 +212,7 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
                     aria-selected={i === active}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => openPatient(p)}
-                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[3px] px-2 py-[9px] text-left"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[10px] px-2 py-[9px] text-left"
                     style={{ background: i === active ? 'var(--surface-card-alt)' : 'transparent', border: 0 }}
                   >
                     <span className="min-w-0">
@@ -233,7 +233,7 @@ export function PatientSearch({ consents, patients }: { consents: Consent[]; pat
                 <button
                   type="button"
                   onClick={() => apply(value)}
-                  className="mt-1 w-full cursor-pointer rounded-[3px] px-2 py-2 text-left text-[12.5px]"
+                  className="mt-1 w-full cursor-pointer rounded-[10px] px-2 py-2 text-left text-[12.5px]"
                   style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
                 >
                   Afficher les envois correspondant à « {value.trim()} » →

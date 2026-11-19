@@ -35,7 +35,7 @@ export function Input({ label, hint, mandatory = false, onFocus, onBlur, ...prop
           setFocus(false)
           onBlur?.(e)
         }}
-        className={`w-full rounded-[3px] py-3 pl-[14px] text-[1.0625rem] outline-none transition-colors ${isPassword ? 'pr-[48px]' : 'pr-[14px]'}`}
+        className={`w-full rounded-[var(--radius-control)] py-3 pl-[14px] text-[1.0625rem] outline-none transition-colors ${isPassword ? 'pr-[48px]' : 'pr-[14px]'}`}
         style={{
           background: 'var(--surface-card-alt)',
           border: `1px solid ${focus ? 'var(--accent)' : 'var(--border-subtle)'}`,
@@ -54,7 +54,7 @@ export function Input({ label, hint, mandatory = false, onFocus, onBlur, ...prop
           aria-label={shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
           aria-pressed={shown}
           title={shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-          className="absolute right-[6px] top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[3px]"
+          className="absolute right-[6px] top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[8px]"
           style={{ background: 'none', border: 0, color: 'var(--text-secondary)' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

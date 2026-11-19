@@ -180,7 +180,7 @@ export function ProfilesPage() {
 
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 pb-16 pt-[clamp(2.5rem,9vh,96px)]" style={{ background: 'var(--surface-page)' }}>
+    <div className="flex min-h-screen flex-col items-center px-6 pb-16 pt-[clamp(2.5rem,9vh,96px)]" style={{ background: 'transparent' }}>
       <div className="mb-[clamp(1.5rem,5vh,48px)] flex h-10 w-10 items-center justify-center rounded-[4px] p-2" style={{ background: 'var(--action-accent)' }}>
         <img src={WOUI_LOGO_URL} alt="Woui" className="h-full w-full object-contain" />
       </div>

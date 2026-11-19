@@ -53,7 +53,7 @@ export function CabinetSetup({ doctor, practitioners, pinApi, practitionersApi, 
   ]
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-5 pb-16 pt-[clamp(2rem,7vh,72px)]" style={{ background: 'var(--surface-page)', color: 'var(--text-primary)' }}>
+    <div className="flex min-h-screen flex-col items-center px-5 pb-16 pt-[clamp(2rem,7vh,72px)]" style={{ background: 'transparent', color: 'var(--text-primary)' }}>
       <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-[4px] p-2" style={{ background: 'var(--action-accent)' }}>
         <img src={WOUI_LOGO_URL} alt="Woui" className="h-full w-full object-contain" />
       </div>

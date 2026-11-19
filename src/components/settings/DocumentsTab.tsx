@@ -18,7 +18,7 @@ interface DocumentsTabProps {
   withTemplates?: boolean
 }
 
-const CARD = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
+const CARD = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }
 
 /** Paramètres > Documents PDF : signature et tampon du praticien, modèles du cabinet (consentements, conseils post-opératoires). */
 export function DocumentsTab({ doctorId, activeProfile, onSignatureSaved, showToast, withSignature = true, withTemplates = true }: DocumentsTabProps) {

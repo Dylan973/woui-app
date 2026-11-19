@@ -186,7 +186,7 @@ export function SignatureEditor({
         <div className="min-w-0">
           <div
             className="relative flex min-h-[220px] items-center justify-center p-6"
-            style={{ background: '#ffffff', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
+            style={{ background: '#ffffff', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }}
           >
             {working && (
               <div className="absolute inset-0 z-10 flex items-center justify-center text-[13px]" style={{ background: 'rgba(255,255,255,0.85)', color: '#4b4b63' }}>

@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase'
 import type { Doctor, Profile } from '../../types'
 import type { DashboardOutletContext } from '../layout/AppLayout'
 
-const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
+const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--card-ring)' }
 
 /** Gestion du cabinet > Profil : coordonnées du cabinet (SIRET, adresse, téléphone), nom et logo. */
 export function CabinetInfoCard({

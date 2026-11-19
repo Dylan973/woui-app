@@ -194,7 +194,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     return (
       <div
         className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center"
-        style={{ background: 'var(--surface-page)', color: 'var(--text-primary)' }}
+        style={{ background: 'transparent', color: 'var(--text-primary)' }}
       >
         <div className="text-5xl">🩺</div>
         <h1 className="font-display text-xl">Profil praticien introuvable</h1>
@@ -381,7 +381,7 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--surface-page)', color: 'var(--text-primary)' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent', color: 'var(--text-primary)' }}>
       {billingAlert && (
         <div
           className="flex flex-wrap items-center justify-center gap-3 px-4 py-2 text-center text-[13px]"

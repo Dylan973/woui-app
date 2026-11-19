@@ -37,7 +37,17 @@ function useTheme() {
 }
 
 const NAV_ITEM =
-  'border-0 bg-transparent px-4 py-2 rounded-[3px] cursor-pointer text-[0.8125rem] tracking-[0.06em] whitespace-nowrap transition-colors'
+  'border-0 bg-transparent px-[18px] py-[8px] rounded-full cursor-pointer text-[0.875rem] font-medium whitespace-nowrap transition-[background,color,box-shadow] duration-200'
+
+/** Onglet actif : pastille claire posée sur la piste translucide. */
+const navStyle = (isActive: boolean) => ({
+  background: isActive ? 'var(--pill-active)' : 'transparent',
+  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+  boxShadow: isActive ? '0 1px 2px rgba(23,23,52,0.08), 0 6px 16px -8px rgba(108,92,231,0.45)' : 'none',
+})
+
+const ICON_BTN = 'relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors'
+const iconBtnStyle = { border: '1px solid var(--glass-border)', color: 'var(--text-primary)', background: 'var(--glass-bg)' }
 
 export function Header({ consents, patients, activeProfile, profilesEnabled, multiProfile, canSend = true, onOpenSendModal, onSignOut }: HeaderProps) {
   const location = useLocation()
@@ -96,24 +106,26 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
   }
 
   return (
-    <header
-      className="sticky top-0 z-40 flex min-h-[68px] flex-wrap items-center gap-3 px-[clamp(1rem,4vw,34px)] py-2 sm:gap-7 sm:py-0"
-      style={{ background: 'var(--surface-page)', borderBottom: '1px solid var(--border-subtle)' }}
-    >
+    <header className="sticky top-0 z-40 px-[clamp(0.75rem,3vw,28px)] pt-[14px]">
+      <div
+        className="mx-auto flex min-h-[72px] max-w-[1520px] flex-wrap items-center gap-3 rounded-[24px] px-[clamp(1rem,2.5vw,26px)] py-[10px] backdrop-blur-xl lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-6"
+        style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-ring), 0 20px 50px -30px rgba(108,92,231,0.45)' }}
+      >
       <div className="flex items-center">
         <span className="font-display text-[21px] font-semibold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>
           Woui
         </span>
       </div>
 
-      <nav className="flex items-center gap-1 sm:ml-[18px]">
+      <nav
+        className="flex items-center gap-1 rounded-full p-[5px]"
+        style={{ background: 'var(--pill-track)', border: '1px solid var(--glass-border)' }}
+        aria-label="Navigation principale"
+      >
         <NavLink
           to="/dashboard"
           className={NAV_ITEM}
-          style={({ isActive }) => ({
-            background: isActive ? 'var(--surface-card-alt)' : 'transparent',
-            color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-          })}
+          style={({ isActive }) => navStyle(isActive)}
         >
           Tableau de bord
         </NavLink>
@@ -128,23 +140,20 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
         <NavLink
           to="/settings"
           className={NAV_ITEM}
-          style={({ isActive }) => ({
-            background: isActive ? 'var(--surface-card-alt)' : 'transparent',
-            color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-          })}
+          style={({ isActive }) => navStyle(isActive)}
         >
           Paramètres
         </NavLink>
       </nav>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-[10px] lg:justify-self-end">
         <PatientSearch consents={consents} patients={patients} />
 
         <button
           onClick={toggle}
           title="Changer de thème"
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[3px]"
-          style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', background: 'none' }}
+          className={ICON_BTN}
+          style={iconBtnStyle}
         >
           {theme === 'light' ? (
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
@@ -162,8 +171,8 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
           <button
             onClick={openNotifs}
             title="Notifications"
-            className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-[3px]"
-            style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', background: 'none' }}
+            className={ICON_BTN}
+            style={iconBtnStyle}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 8-3 8h18s-3-1-3-8" />
@@ -189,7 +198,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
           {notifOpen && (
             <div
               className="absolute right-0 top-[calc(100%+10px)] z-[60] w-80 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-2"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-pop)', boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
               {alerts.length > 0 && (
                 <>
@@ -258,7 +267,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
         </div>
 
         {isDashboard && canSend && (
-          <Button variant="primary" size="sm" onClick={onOpenSendModal}>
+          <Button variant="primary" size="sm" onClick={onOpenSendModal} className="h-10 !rounded-full !px-[18px]">
             <span className="hidden sm:inline">+ Nouvel envoi</span>
             <span className="sm:hidden">+ Nouveau</span>
           </Button>
@@ -269,7 +278,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
             onClick={() => setAvatarOpen((v) => !v)}
             title={profileName(activeProfile)}
             aria-label={`Menu du profil ${profileName(activeProfile)}`}
-            className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center overflow-hidden rounded-full p-0 text-[12px]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full p-0 text-[12px]"
             style={
               multiProfile || activeProfile.photoUrl
                 ? { background: activeProfile.color, border: '1px solid transparent', color: '#fff', fontWeight: 600 }
@@ -287,7 +296,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
           {avatarOpen && (
             <div
               className="absolute right-0 top-[calc(100%+10px)] z-[60] w-56 animate-[nb-rise_0.22s_var(--ease-standard)_both] p-1"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 4, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-pop)', boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
             >
               <div className="px-3 pb-2 pt-[10px]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 <div className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -302,7 +311,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
                   setAvatarOpen(false)
                   navigate('/profiles')
                 }}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-[3px] px-3 py-2 text-left text-[13px]"
+                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left text-[13px]"
                 style={{ background: 'none', border: 0, color: 'var(--text-primary)' }}
               >
                 {multiProfile ? 'Changer de profil' : 'Profils praticiens'}
@@ -317,14 +326,14 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
                   setAvatarOpen(false)
                   navigate('/settings')
                 }}
-                className="w-full cursor-pointer rounded-[3px] px-3 py-2 text-left text-[13px]"
+                className="w-full cursor-pointer rounded-[10px] px-3 py-2 text-left text-[13px]"
                 style={{ background: 'none', border: 0, color: 'var(--text-primary)' }}
               >
                 Paramètres
               </button>
               <button
                 onClick={onSignOut}
-                className="w-full cursor-pointer rounded-[3px] px-3 py-2 text-left text-[13px]"
+                className="w-full cursor-pointer rounded-[10px] px-3 py-2 text-left text-[13px]"
                 style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
               >
                 Déconnexion
@@ -332,6 +341,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
             </div>
           )}
         </div>
+      </div>
       </div>
     </header>
   )
