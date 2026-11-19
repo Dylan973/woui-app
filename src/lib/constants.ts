@@ -1,5 +1,8 @@
 import type { ConsentStatus, Plan } from '../types'
 
+/** Woui est vendu par une micro-entreprise en franchise en base de TVA : prix nets, sans TVA. */
+export const VAT_NOTE = 'TVA non applicable, art. 293 B du CGI'
+
 export const PLANS: Plan[] = [
   {
     id: 'starter',

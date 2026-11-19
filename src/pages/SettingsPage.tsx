@@ -6,7 +6,7 @@ import { DocumentsTab } from '../components/settings/DocumentsTab'
 import { PinDialog, type PinStepKey } from '../components/profiles/PinDialog'
 import { profileName } from '../lib/profiles'
 import { supabase } from '../lib/supabase'
-import { PLANS, PLAN_LIMITS_LABEL } from '../lib/constants'
+import { PLANS, PLAN_LIMITS_LABEL, VAT_NOTE } from '../lib/constants'
 import { hasSubscription, openBillingPortal, startCheckout, trialDaysLeft } from '../lib/billing'
 import type { BillingInterval, PlanId } from '../types'
 import { countThisMonth } from '../lib/usage'
@@ -339,10 +339,10 @@ export function SettingsPage() {
                 Voir les offres
               </Button>
             )}
+            {isCabinet && (
+              <TeamSeats doctor={doctor} practitionerCount={profiles.length - 1} canManage={cabinetSpace} refetchDoctor={refetchDoctor} showToast={showToast} />
+            )}
           </div>
-          {isCabinet && (
-            <TeamSeats doctor={doctor} practitionerCount={profiles.length - 1} canManage={cabinetSpace} refetchDoctor={refetchDoctor} showToast={showToast} />
-          )}
         </div>
       )}
 
@@ -518,7 +518,7 @@ export function SettingsPage() {
             })}
           </div>
           <p className="mt-5 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
-            Paiement sécurisé par Stripe. Sans engagement, résiliable à tout moment depuis cet écran.
+            Prix nets, {VAT_NOTE}. Paiement sécurisé par Stripe. Sans engagement, résiliable à tout moment depuis cet écran.
             {trialLeft !== null && trialLeft > 2 && ' Aucun prélèvement avant la fin de votre essai.'}
           </p>
         </div>

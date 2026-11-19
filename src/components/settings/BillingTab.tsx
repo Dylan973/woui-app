@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { callFunction } from '../../lib/functions'
 import { openBillingPortal } from '../../lib/billing'
-import { PLANS } from '../../lib/constants'
+import { PLANS, VAT_NOTE } from '../../lib/constants'
 import type { Doctor } from '../../types'
 import type { ToastType } from '../ui/Toast'
 
@@ -166,7 +166,7 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
           </dl>
         )}
         <p className="mb-0 mt-6 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          Les montants sont ceux que Stripe débite, sans frais ajoutés. Sur Stripe : changer de carte, d’offre ou de rythme de paiement, mettre à jour l’adresse de facturation, résilier.
+          Montants nets, {VAT_NOTE}. Ce sont ceux que Stripe débite, sans frais ajoutés. Sur Stripe : changer de carte, d’offre ou de rythme de paiement, mettre à jour l’adresse de facturation, résilier.
         </p>
       </div>
 
