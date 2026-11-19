@@ -108,7 +108,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
   return (
     <header className="sticky top-0 z-40 px-[clamp(0.75rem,3vw,28px)] pt-[14px]">
       <div
-        className="mx-auto flex min-h-[72px] max-w-[1520px] flex-wrap items-center gap-3 rounded-[24px] px-[clamp(1rem,2.5vw,26px)] py-[10px] backdrop-blur-xl lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-6"
+        className="mx-auto flex min-h-[72px] max-w-[1520px] flex-wrap items-center gap-3 rounded-[24px] px-[clamp(1rem,2.5vw,26px)] py-[10px] backdrop-blur-xl lg:grid lg:grid-cols-[auto_1fr_auto] lg:gap-6"
         style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-ring), 0 20px 50px -30px rgba(108,92,231,0.45)' }}
       >
       <div className="flex items-center">
@@ -118,7 +118,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
       </div>
 
       <nav
-        className="flex items-center gap-1 rounded-full p-[5px]"
+        className="flex items-center gap-1 rounded-full p-[5px] lg:justify-self-center"
         style={{ background: 'var(--pill-track)', border: '1px solid var(--glass-border)' }}
         aria-label="Navigation principale"
       >
