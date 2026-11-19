@@ -4,6 +4,7 @@ import { matchesPatient } from '../components/layout/PatientSearch'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
+import { ProfileAvatar } from '../components/profiles/ProfileAvatar'
 import { supabase } from '../lib/supabase'
 import { profileName } from '../lib/profiles'
 import { appointmentAlert, appointmentLabel, formatAppointment, formatRelative, statusDate } from '../lib/consentTiming'
@@ -63,11 +64,14 @@ export function DashboardPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const query = searchParams.get('q') ?? ''
+  // « Gestion du cabinet » n'envoie rien : vue de supervision, une enveloppe par praticien.
+  const manager = activeProfile.kind === 'cabinet'
   const consents = useMemo(
-    () => (cabinetView && practitionerFilter !== 'all' ? scoped.filter((c) => profileOf(c.practitioner_id).id === practitionerFilter) : scoped),
+    () => ((cabinetView || manager) && practitionerFilter !== 'all' ? scoped.filter((c) => profileOf(c.practitioner_id).id === practitionerFilter) : scoped),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scoped, cabinetView, practitionerFilter]
+    [scoped, cabinetView, manager, practitionerFilter]
   )
+  const envelopeView = manager && practitionerFilter === 'all' && !query
   const [filter, setFilter] = useState<FilterKey>('all')
   const [sortDesc, setSortDesc] = useState(true)
   const [showTutorial, setShowTutorial] = useState(false)
@@ -188,6 +192,26 @@ export function DashboardPage() {
     }
     return [...map.entries()].map(([key, items]) => ({ key, items }))
   }, [rows])
+  // Enveloppes par praticien (Gestion du cabinet) : envois, en attente, signés, dernier envoi.
+  const envelopes = useMemo(() => {
+    if (!manager) return []
+    // Les envois sans praticien attribué (anciens envois, profil archivé) ont leur propre enveloppe, s'il y en a.
+    return profiles
+      .filter((p) => p.kind !== 'cabinet' || scoped.some((c) => profileOf(c.practitioner_id).id === p.id))
+      .map((p) => {
+        const mine = scoped.filter((c) => profileOf(c.practitioner_id).id === p.id)
+        const last = mine.reduce<string | null>((acc, c) => (!acc || c.sent_at > acc ? c.sent_at : acc), null)
+        return {
+          profile: p.kind === 'cabinet' ? { ...p, first_name: 'Sans praticien attribué', last_name: '', specialty: 'Envois du cabinet' } : p,
+          total: mine.length,
+          pending: mine.filter(isPending).length,
+          signed: mine.filter((c) => c.status === 'signed').length,
+          alerts: mine.filter((c) => appointmentAlert(c)).length,
+          last,
+        }
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manager, profiles, scoped])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const toggleGroup = (key: string) =>
     setExpanded((prev) => {
@@ -405,7 +429,7 @@ export function DashboardPage() {
 
   return (
     <div style={{ animation: 'nb-rise 0.5s var(--ease-standard) both' }}>
-      {cabinetViewAvailable && (
+      {cabinetViewAvailable && !envelopeView && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
           {!isCabinet && (
           <div className="flex gap-1" role="group" aria-label="Envois affichés">
@@ -436,7 +460,20 @@ export function DashboardPage() {
             })}
           </div>
           )}
-          {cabinetView && (
+          {manager && practitionerFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => {
+                setPractitionerFilter('all')
+                setFilter('all')
+              }}
+              className="cursor-pointer text-[0.875rem] font-semibold"
+              style={{ background: 'none', border: 0, color: 'var(--text-accent)' }}
+            >
+              ← Tous les praticiens
+            </button>
+          )}
+          {cabinetView && !manager && (
             <select
               aria-label="Praticien"
               value={practitionerFilter}
@@ -456,7 +493,7 @@ export function DashboardPage() {
           )}
         </div>
       )}
-      {alerts.length > 0 && (
+      {alerts.length > 0 && !envelopeView && (
         <div
           role="alert"
           className="mb-[22px] flex flex-wrap items-center gap-x-5 gap-y-3 p-[18px_22px]"
@@ -481,8 +518,14 @@ export function DashboardPage() {
           </Button>
         </div>
       )}
+      {manager && practitionerFilter !== 'all' && (
+        <h1 className="font-display mb-5 text-[clamp(1.4rem,3vw,30px)]" style={{ color: 'var(--text-primary)' }}>
+          Envois de {profileName(profiles.find((p) => p.id === practitionerFilter) ?? activeProfile)}
+        </h1>
+      )}
       {/* ── Hero + stats ── */}
-      <div className="grid gap-[26px] lg:grid-cols-[1.35fr_1fr]">
+      <div className={manager ? 'grid' : 'grid gap-[26px] lg:grid-cols-[1.35fr_1fr]'}>
+        {!manager && (
         <div
           className="relative overflow-hidden p-[clamp(1.5rem,4vw,36px)]"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
@@ -522,9 +565,10 @@ export function DashboardPage() {
             </div>
           )}
         </div>
+        )}
 
         <div
-          className="grid grid-cols-2 gap-px overflow-hidden"
+          className={`grid grid-cols-2 gap-px overflow-hidden ${manager ? 'lg:grid-cols-4' : ''}`}
           style={{ background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 4 }}
         >
           {stats.map((s) => (
@@ -560,6 +604,10 @@ export function DashboardPage() {
         </p>
       )}
 
+      {envelopeView ? (
+        <EnvelopeGrid envelopes={envelopes} loading={consentsLoading} onOpen={(id) => setPractitionerFilter(id)} />
+      ) : (
+      <>
       {/* ── Filtres + tri ── */}
       <div className="my-[28px] flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">
@@ -705,9 +753,122 @@ export function DashboardPage() {
           })}
         </div>
       )}
+      </>
+      )}
 
-      {showTutorial && <TutorialModal onClose={closeTutorial} />}
+      {showTutorial && !manager && <TutorialModal onClose={closeTutorial} />}
     </div>
+  )
+}
+
+type Envelope = {
+  profile: DashboardOutletContext['profiles'][number]
+  total: number
+  pending: number
+  signed: number
+  alerts: number
+  last: string | null
+}
+
+/** Gestion du cabinet : une grande enveloppe par praticien, qui s'ouvre sur ses envois. */
+function EnvelopeGrid({ envelopes, loading, onOpen }: { envelopes: Envelope[]; loading: boolean; onOpen: (id: string) => void }) {
+  if (loading) return <Spinner />
+  return (
+    <section className="mt-9">
+      <h2 className="font-display mb-5 text-[22px]" style={{ color: 'var(--text-primary)' }}>
+        Envois par praticien
+      </h2>
+      <div className="grid gap-[22px] sm:grid-cols-2 xl:grid-cols-3">
+        {envelopes.map((e) => {
+          const color = e.profile.color || 'var(--accent)'
+          const layers = Math.min(Math.max(e.total - 1, 0), 2)
+          return (
+            <button
+              key={e.profile.id}
+              type="button"
+              onClick={() => onOpen(e.profile.id)}
+              className="group relative flex cursor-pointer flex-col justify-start text-left"
+              style={{ background: 'none', border: 0, padding: 0, paddingBottom: layers * 8 }}
+              aria-label={`Ouvrir les envois de ${profileName(e.profile)}`}
+            >
+              {/* Courriers glissés dans l'enveloppe */}
+              {Array.from({ length: layers }, (_, i) => layers - i).map((depth) => (
+                <span
+                  key={depth}
+                  aria-hidden="true"
+                  className="absolute"
+                  style={{
+                    left: depth * 12,
+                    right: depth * 12,
+                    top: depth * 8,
+                    bottom: (layers - depth) * 8,
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 6,
+                    opacity: depth === 2 ? 0.5 : 0.8,
+                  }}
+                />
+              ))}
+              <span
+                className="relative block overflow-hidden transition-transform duration-200 group-hover:-translate-y-[3px]"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}
+              >
+                {/* Rabat de l'enveloppe, teinté à la couleur du praticien */}
+                <span
+                  aria-hidden="true"
+                  className="block h-[64px]"
+                  style={{
+                    background: `linear-gradient(160deg, color-mix(in srgb, ${color} 22%, transparent), color-mix(in srgb, ${color} 8%, transparent))`,
+                    clipPath: 'polygon(0 0, 100% 0, 100% 18%, 50% 100%, 0 18%)',
+                  }}
+                />
+                <span className="-mt-[34px] flex flex-col items-center px-6 pb-6 text-center">
+                  <span className="rounded-[8px] p-[3px]" style={{ background: 'var(--surface-card)' }}>
+                    <ProfileAvatar profile={e.profile} className="h-12 w-12 rounded-[6px] text-[16px]" />
+                  </span>
+                  <span className="mt-3 text-[1.0625rem] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {profileName(e.profile)}
+                  </span>
+                  <span className="text-[12.5px]" style={{ color: 'var(--text-muted)' }}>
+                    {e.profile.specialty || 'Praticien'}
+                  </span>
+                  <span className="mt-5 grid w-full grid-cols-3 gap-2">
+                    {[
+                      ['Envois', e.total, 'var(--text-primary)'],
+                      ['En attente', e.pending, e.pending > 0 ? 'var(--text-accent)' : 'var(--text-primary)'],
+                      ['Signés', e.signed, 'var(--status-signed-text)'],
+                    ].map(([label, value, c]) => (
+                      <span key={label as string} className="flex flex-col items-center">
+                        <span className="font-display text-[24px] font-semibold tabular-nums" style={{ color: c as string }}>
+                          {value as number}
+                        </span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>
+                          {label as string}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                  {e.alerts > 0 && (
+                    <span
+                      className="mt-4 rounded-full px-[10px] py-[3px] text-[11.5px] font-semibold"
+                      style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)' }}
+                    >
+                      {e.alerts} RDV à risque
+                    </span>
+                  )}
+                  <span className="mt-5 flex w-full items-center justify-between pt-4 text-[12.5px]" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{e.last ? `Dernier envoi ${formatRelative(e.last)}` : 'Aucun envoi'}</span>
+                    <span className="font-semibold" style={{ color: 'var(--text-accent)' }}>
+                      Ouvrir →
+                    </span>
+                  </span>
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
