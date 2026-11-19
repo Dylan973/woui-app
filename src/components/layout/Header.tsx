@@ -146,7 +146,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
         </NavLink>
       </nav>
 
-      <div className="ml-auto flex items-center gap-[10px] lg:justify-self-end">
+      <div className="ml-auto flex flex-shrink-0 items-center gap-[10px] lg:justify-self-end">
         <PatientSearch consents={consents} patients={patients} />
 
         <button
@@ -267,7 +267,7 @@ export function Header({ consents, patients, activeProfile, profilesEnabled, mul
         </div>
 
         {isDashboard && canSend && (
-          <Button variant="primary" size="sm" onClick={onOpenSendModal} className="h-10 !rounded-full !px-[18px]">
+          <Button variant="primary" size="sm" onClick={onOpenSendModal} className="h-10 flex-shrink-0 whitespace-nowrap !rounded-full !px-[18px]">
             <span className="hidden sm:inline">+ Nouvel envoi</span>
             <span className="sm:hidden">+ Nouveau</span>
           </Button>
