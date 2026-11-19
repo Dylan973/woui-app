@@ -1,15 +1,15 @@
 // Offre Clinique : ajoute ou retire un praticien supplémentaire (au-delà des 4 compris).
 // Réservé à « Gestion du cabinet » (jeton de session dans x-woui-cabinet).
 //
-// Ajout : la place n'est accordée qu'une fois payée.
-//   - Abonnement actif : Stripe facture tout de suite le prorata et débite la carte.
+// Ajout :
+//   - Essai : la place est ajoutée, sans frais jusqu'à la première facture.
+//   - Abonnement à jour avec carte ou mandat SEPA : la place est ajoutée, le prorata
+//     figure sur la prochaine facture (un seul prélèvement par mois).
+//   - Sinon (retard de paiement, aucun moyen de paiement) : Stripe facture tout de suite le prorata.
 //     Paiement accepté → { extra_seats, paid: true }.
 //     Validation bancaire demandée ou carte refusée → la modification reste en attente
 //     (pending update) et { pay_url } renvoie la facture Stripe à régler ; le webhook
 //     accorde la place une fois la facture payée.
-//   - Essai gratuit : { needs_trial_end, plan_amount, seat_amount } ; avec { end_trial: true },
-//     l'essai se termine, l'abonnement et la place sont facturés et payés immédiatement
-//     (refusé sans rien modifier si le paiement échoue).
 // Retrait : la place libre est retirée, le prorata est crédité sur la prochaine facture.
 // Aperçu (action 'preview') : montant exact débité aujourd'hui et montant des prochaines échéances,
 // calculés par Stripe ; la date de calcul (proration_date) est renvoyée puis réutilisée à l'ajout,
@@ -40,9 +40,8 @@ Deno.serve(async (req) => {
     if (!(await cabinetAllowed(req, doctor))) return cabinetLocked()
     if (!doctor.stripe_subscription_id) return json({ error: "Aucun abonnement Clinique n'est actif sur ce compte." }, 400)
 
-    const { action, end_trial, proration_date } = (await req.json().catch(() => ({}))) as {
+    const { action, proration_date } = (await req.json().catch(() => ({}))) as {
       action?: string
-      end_trial?: boolean
       proration_date?: number
     }
     if (action !== 'add' && action !== 'remove' && action !== 'preview') return json({ error: 'Action invalide' }, 400)
@@ -74,7 +73,7 @@ Deno.serve(async (req) => {
       return json({ extra_seats: extra })
     }
 
-    // ── Ajout d'une place : paiement d'abord ──
+    // ── Ajout d'une place ──
     const prices = await stripe.prices.list({ lookup_keys: [seatLookupKey(plan.interval)], active: true, limit: 1 })
     const seatPrice = prices.data[0]
     if (!seatPrice) return json({ error: `Prix Stripe introuvable (${seatLookupKey(plan.interval)})` }, 500)
@@ -83,23 +82,41 @@ Deno.serve(async (req) => {
     // Date de calcul du prorata : celle de l'aperçu (moins d'une heure), sinon maintenant.
     const now = Math.floor(Date.now() / 1000)
     const prorationDate = proration_date && proration_date <= now && proration_date > now - 3600 ? Math.floor(proration_date) : now
+    const s = sub as unknown as { current_period_end?: number; items: { data: { current_period_end?: number }[] } }
+    const periodEnd = s.current_period_end ?? s.items.data[0]?.current_period_end ?? null
+    const recurring = sub.items.data.reduce((sum, i) => sum + (i.price.unit_amount ?? 0) * (i.quantity ?? 1), 0) + (seatPrice.unit_amount ?? 0)
+
+    // Mode de facturation de la place :
+    //  - 'trial' : essai en cours, la place s'ajoute gratuitement et entre dans la première facture ;
+    //  - 'next_invoice' : abonnement à jour avec un moyen de paiement enregistré (carte ou mandat SEPA),
+    //    le prorata s'ajoute à la prochaine facture, un seul prélèvement par mois ;
+    //  - 'now' : paiement en retard ou aucun moyen de paiement, le prorata est payé tout de suite.
+    let hasPaymentMethod = Boolean(sub.default_payment_method)
+    if (!hasPaymentMethod) {
+      const customer = await stripe.customers.retrieve(sub.customer as string)
+      hasPaymentMethod = Boolean((customer as { invoice_settings?: { default_payment_method?: unknown } }).invoice_settings?.default_payment_method)
+    }
+    const mode: 'trial' | 'next_invoice' | 'now' =
+      sub.status === 'trialing' ? 'trial' : sub.status === 'active' && hasPaymentMethod ? 'next_invoice' : 'now'
 
     if (action === 'preview') {
-      const recurring = sub.items.data.reduce((sum, i) => sum + (i.price.unit_amount ?? 0) * (i.quantity ?? 1), 0) + (seatPrice.unit_amount ?? 0)
-      const s = sub as unknown as { current_period_end?: number; items: { data: { current_period_end?: number }[] } }
-      const periodEnd = s.current_period_end ?? s.items.data[0]?.current_period_end ?? null
-      if (sub.status === 'trialing') {
-        return json({ trialing: true, due_now: recurring, recurring, interval: plan.interval, period_end: null, proration_date: prorationDate })
+      if (mode === 'trial') {
+        return json({ mode, due_now: 0, prorata: 0, next_amount: recurring, next_date: sub.trial_end, recurring, interval: plan.interval, period_end: sub.trial_end, proration_date: prorationDate })
       }
       const preview = await stripe.invoices.createPreview({
         customer: sub.customer as string,
         subscription: sub.id,
-        subscription_details: { items, proration_behavior: 'always_invoice', proration_date: prorationDate },
+        subscription_details: { items, proration_behavior: mode === 'now' ? 'always_invoice' : 'create_prorations', proration_date: prorationDate },
       })
+      const prorata = preview.lines.data
+        .filter((l) => (l as unknown as { proration?: boolean }).proration)
+        .reduce((sum, l) => sum + l.amount, 0)
       return json({
-        trialing: false,
-        due_now: preview.amount_due,
-        tax_now: (preview as unknown as { tax?: number | null }).tax ?? 0,
+        mode,
+        due_now: mode === 'now' ? preview.amount_due : 0,
+        prorata,
+        next_amount: mode === 'now' ? recurring : preview.amount_due,
+        next_date: periodEnd,
         recurring,
         interval: plan.interval,
         period_end: periodEnd,
@@ -107,37 +124,13 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (sub.status === 'trialing' && end_trial !== true) {
-      // Pendant l'essai, rien ne serait débité : on propose de démarrer l'abonnement maintenant.
-      return json({
-        needs_trial_end: true,
-        plan_amount: (planItem?.price?.unit_amount ?? 0) * (planItem?.quantity ?? 1),
-        seat_amount: (seatPrice.unit_amount ?? 0) * (current + 1),
-        interval: plan.interval,
-      })
-    }
-
     // Factures et libellés Stripe en français.
     await stripe.customers.update(sub.customer as string, { preferred_locales: ['fr-FR', 'fr'] }).catch(() => {})
 
-    if (sub.status === 'trialing') {
-      try {
-        const updated = await stripe.subscriptions.update(sub.id, {
-          items,
-          trial_end: 'now',
-          proration_behavior: 'always_invoice',
-          payment_behavior: 'error_if_incomplete',
-          expand: ['latest_invoice'],
-        })
-        const invoice = updated.latest_invoice as { status?: string } | null
-        if (invoice?.status !== 'paid') return json({ error: 'Le paiement n’a pas été confirmé. Aucune place n’a été ajoutée.' }, 402)
-      } catch (error) {
-        console.error('stripe-seats fin d’essai:', error)
-        return json(
-          { error: 'Le paiement a été refusé par la banque. Vérifiez votre carte dans « Abonnement > Gérer mon abonnement » puis réessayez. Aucune place n’a été ajoutée.' },
-          402
-        )
-      }
+    if (mode === 'trial') {
+      await stripe.subscriptions.update(sub.id, { items, proration_behavior: 'none' })
+    } else if (mode === 'next_invoice') {
+      await stripe.subscriptions.update(sub.id, { items, proration_behavior: 'create_prorations', proration_date: prorationDate })
     } else {
       const updated = await stripe.subscriptions.update(sub.id, {
         items,
@@ -156,7 +149,7 @@ Deno.serve(async (req) => {
 
     const extra = current + 1
     await admin.from('doctors').update({ extra_seats: extra, updated_at: new Date().toISOString() }).eq('id', doctor.id)
-    return json({ extra_seats: extra, paid: true })
+    return json({ extra_seats: extra, paid: mode === 'now', mode })
   } catch (error) {
     console.error('stripe-seats error:', error)
     return json({ error: 'La modification de l’abonnement a échoué. Réessayez dans un instant.' }, 500)

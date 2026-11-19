@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Header } from './Header'
+import { SubscriptionEnded } from './SubscriptionEnded'
 import { ActivateTrial } from './ActivateTrial'
 import { SendModal } from '../dashboard/SendModal'
 import { usePatients } from '../../hooks/usePatients'
@@ -217,6 +218,28 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
     return <ActivateTrial doctor={doctor} refetchDoctor={refetchDoctor} onSignOut={() => onSignOut().then(() => navigate('/login'))} />
   }
 
+  // Abonnement résilié ou arrivé à terme : Woui est verrouillé ; reprise ou téléchargement des documents signés.
+  if (doctor.plan_status === 'cancelled') {
+    const nameOf = (id: string | null) => {
+      const p = id ? practitioners.find((x) => x.id === id) : null
+      const person = p ?? doctor
+      return `Dr ${[person.first_name, person.last_name].filter(Boolean).join(' ')}`.trim()
+    }
+    return (
+      <>
+        <SubscriptionEnded
+          doctor={doctor}
+          refetchDoctor={refetchDoctor}
+          onSignOut={() => onSignOut().then(() => navigate('/login'))}
+          openCabinetSession={pinApi.openCabinetSession}
+          practitionerName={nameOf}
+          showToast={(msg, type = 'success') => setToast({ msg, type })}
+        />
+        {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+      </>
+    )
+  }
+
   // Profils praticiens (offre Clinique) : chaque praticien choisit le sien et ne voit que ses envois.
   const profilesEnabled = canUseProfiles(doctor)
   const profiles = buildProfiles(doctor, practitioners).map((p) => ({ ...p, photoUrl: p.photo_path ? (avatarUrls[p.photo_path] ?? null) : null }))
@@ -333,10 +356,8 @@ export function AppLayout({ doctor, authLoading, onSignOut, refetchDoctor }: App
           }`
         : 'Votre essai gratuit est terminé.'
       : doctor.plan_status === 'past_due'
-        ? 'Le dernier paiement a échoué.'
-        : doctor.plan_status === 'cancelled'
-          ? 'Votre abonnement est résilié.'
-          : null
+        ? 'Le dernier paiement a échoué. Sans régularisation, l’accès à Woui sera suspendu.'
+        : null
 
   const outletContext: DashboardOutletContext = {
     doctor,

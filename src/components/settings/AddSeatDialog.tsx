@@ -9,8 +9,8 @@ const euros = (cents: number) =>
 const shortDate = (unix: number) => new Date(unix * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
 /**
- * Achat d'une place de praticien (offre Clinique). Le montant exact, calculé par Stripe, est affiché
- * avant de payer ; la place n'est ajoutée qu'une fois le paiement accepté.
+ * Achat d'une place de praticien (offre Clinique). Les montants exacts, calculés par Stripe, sont affichés
+ * avant de valider. Abonnement à jour : prorata sur la prochaine facture ; sinon paiement immédiat.
  */
 export function AddSeatDialog({
   doctorId,
@@ -42,7 +42,7 @@ export function AddSeatDialog({
     if (!preview) return
     setBusy(true)
     setError(null)
-    const { data, error: failure } = await changeExtraSeats('add', doctorId, preview.trialing, preview.proration_date)
+    const { data, error: failure } = await changeExtraSeats('add', doctorId, preview.proration_date)
     setBusy(false)
     if (failure || !data) {
       setError(failure ?? 'Le paiement n’a pas pu être effectué. Aucune place n’a été ajoutée.')
@@ -57,27 +57,29 @@ export function AddSeatDialog({
   }
 
   const per = preview?.interval === 'yearly' ? 'an' : 'mois'
-  const rows: [string, string, string?][] = preview
-    ? preview.trialing
+  const nextDate = preview?.next_date ? shortDate(preview.next_date) : null
+  const rows: [string, string, string?][] = !preview
+    ? []
+    : preview.mode === 'trial'
       ? [
-          ['Débité aujourd’hui', euros(preview.due_now), 'Fin de l’essai gratuit : l’abonnement Clinique démarre, praticien en plus compris.'],
-          ['Ensuite', `${euros(preview.recurring)} / ${per}`, 'À la même date chaque ' + per + '.'],
+          ['Aujourd’hui', euros(0), 'Pendant l’essai gratuit, la place est ajoutée sans frais.'],
+          [nextDate ? `Premier prélèvement, le ${nextDate}` : 'Premier prélèvement', euros(preview.next_amount), 'Abonnement et praticiens en plus, en un seul prélèvement.'],
+          ['Ensuite', `${euros(preview.recurring)} / ${per}`],
         ]
-      : [
-          [
-            'Débité aujourd’hui',
-            euros(preview.due_now),
-            preview.period_end
-              ? `${EXTRA_SEAT_PRICE} € / ${per} au prorata des jours restants, jusqu’au ${shortDate(preview.period_end)} (fin de la période en cours).`
-              : 'Prorata des jours restants de la période en cours.',
-          ],
-          [
-            preview.period_end ? `À partir du ${shortDate(preview.period_end)}` : 'Ensuite',
-            `${euros(preview.recurring)} / ${per}`,
-            'Abonnement Clinique et praticiens en plus, en un seul prélèvement.',
-          ],
-        ]
-    : []
+      : preview.mode === 'next_invoice'
+        ? [
+            ['Aujourd’hui', euros(0), 'Rien n’est débité maintenant : la place est ajoutée tout de suite.'],
+            [
+              nextDate ? `Prochaine facture, le ${nextDate}` : 'Prochaine facture',
+              euros(preview.next_amount),
+              `Dont ${euros(preview.prorata)} pour la place jusqu’à cette date (${EXTRA_SEAT_PRICE} € / ${per} au prorata des jours restants).`,
+            ],
+            ['Ensuite', `${euros(preview.recurring)} / ${per}`, 'Abonnement et praticiens en plus, en un seul prélèvement.'],
+          ]
+        : [
+            ['Débité aujourd’hui', euros(preview.due_now), `${EXTRA_SEAT_PRICE} € / ${per} au prorata des jours restants${nextDate ? `, jusqu’au ${nextDate}` : ''}.`],
+            [nextDate ? `À partir du ${nextDate}` : 'Ensuite', `${euros(preview.recurring)} / ${per}`, 'Abonnement et praticiens en plus, en un seul prélèvement.'],
+          ]
 
   return (
     <div>
@@ -116,7 +118,7 @@ export function AddSeatDialog({
           Annuler
         </Button>
         <Button variant="primary" size="sm" disabled={busy || !preview} onClick={buy}>
-          {busy ? 'Paiement…' : preview ? `Payer ${euros(preview.due_now)} et ajouter la place` : 'Payer et ajouter la place'}
+          {busy ? 'Ajout…' : preview && preview.mode === 'now' ? `Payer ${euros(preview.due_now)} et ajouter la place` : 'Ajouter la place'}
         </Button>
       </div>
     </div>

@@ -63,7 +63,7 @@ export function TeamSeats({ doctor, practitionerCount, canManage, refetchDoctor,
             onDone={async () => {
               await refetchDoctor()
               setBuying(false)
-              showToast(`Paiement accepté, place ajoutée (+${EXTRA_SEAT_PRICE} € / mois)`)
+              showToast(`Place ajoutée (+${EXTRA_SEAT_PRICE} € / mois, sur la prochaine facture)`)
             }}
           />
         </Modal>

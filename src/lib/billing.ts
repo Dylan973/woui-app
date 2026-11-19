@@ -23,6 +23,9 @@ export const TRIAL_DAYS = 7
 /** Ouvre le portail client Stripe (factures, carte, changement de plan, résiliation). */
 export const openBillingPortal = (doctorId?: string) => redirectFrom('stripe-portal', {}, doctorId)
 
+/** Ouvre directement la résiliation Stripe : l'abonnement s'arrête à la fin de la période déjà payée. */
+export const openCancelSubscription = (doctorId?: string) => redirectFrom('stripe-portal', { flow: 'cancel' }, doctorId)
+
 /** Réponse de stripe-seats. */
 export interface SeatResult {
   /** Place accordée (paiement accepté) ou retirée. */
@@ -30,28 +33,29 @@ export interface SeatResult {
   paid?: boolean
   /** Paiement à valider ou à régler sur la facture Stripe ; la place est accordée une fois payée. */
   pay_url?: string
-  /** Essai gratuit en cours : ajouter une place démarre l'abonnement (montants en centimes). */
-  needs_trial_end?: boolean
-  plan_amount?: number
-  seat_amount?: number
-  interval?: BillingInterval
+  /** Mode de facturation retenu pour la place. */
+  mode?: 'trial' | 'next_invoice' | 'now'
 }
 
 /** Offre Clinique : ajoute (après paiement) ou retire un praticien supplémentaire. */
-export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string, endTrial = false, prorationDate?: number) =>
-  callFunction<SeatResult>('stripe-seats', { action, end_trial: endTrial, proration_date: prorationDate }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
+export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string, prorationDate?: number) =>
+  callFunction<SeatResult>('stripe-seats', { action, proration_date: prorationDate }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
 
 /** Montants calculés par Stripe avant l'ajout d'une place (centimes). */
 export interface SeatPreview {
-  trialing: boolean
-  /** Débité tout de suite (prorata jusqu'à la fin de la période, ou abonnement complet en fin d'essai). */
+  /** trial : ajout gratuit jusqu'à la 1re facture ; next_invoice : prorata sur la prochaine facture ; now : payé tout de suite. */
+  mode: 'trial' | 'next_invoice' | 'now'
   due_now: number
-  tax_now?: number
-  /** Montant de chaque échéance suivante, place comprise (hors taxes). */
+  /** Prorata de la place jusqu'à la fin de la période en cours. */
+  prorata: number
+  /** Montant de la prochaine facture (prorata compris en mode next_invoice). */
+  next_amount: number
+  next_date: number | null
+  /** Montant de chaque échéance suivante, place comprise. */
   recurring: number
   interval: BillingInterval
   period_end: number | null
-  /** Date de calcul à renvoyer à l'ajout, pour payer exactement le montant affiché. */
+  /** Date de calcul à renvoyer à l'ajout, pour facturer exactement le montant affiché. */
   proration_date: number
 }
 

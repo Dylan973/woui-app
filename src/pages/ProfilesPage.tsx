@@ -144,7 +144,7 @@ export function ProfilesPage() {
   const addSeat = async () => {
     await refetchDoctor()
     setSeatModal(false)
-    showToast('Paiement accepté, place ajoutée. Vous pouvez créer le profil du praticien.')
+    showToast('Place ajoutée. Vous pouvez créer le profil du praticien.')
     setEditing('new')
   }
 

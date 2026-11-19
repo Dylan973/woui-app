@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { callFunction } from '../../lib/functions'
-import { openBillingPortal } from '../../lib/billing'
+import { openBillingPortal, openCancelSubscription } from '../../lib/billing'
 import { PLANS, VAT_NOTE } from '../../lib/constants'
 import type { Doctor } from '../../types'
 import type { ToastType } from '../ui/Toast'
@@ -86,6 +86,8 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
   const [data, setData] = useState<BillingData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -165,9 +167,60 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
             ))}
           </dl>
         )}
+        {sub && (sub.cancel_at_period_end || sub.cancel_at) && (
+          <div
+            className="mt-6 rounded-[12px] p-4 text-[0.875rem] leading-[1.55]"
+            style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--text-primary)' }}
+          >
+            <b>Résiliation enregistrée.</b> Vos accès restent ouverts jusqu’au {day(sub.cancel_at ?? sub.current_period_end)}, fin de la période déjà payée. Ensuite,
+            Woui sera verrouillé jusqu’à la reprise de l’abonnement. Vous avez changé d’avis ? « Gérer sur Stripe » puis « Renouveler l’abonnement ».
+          </div>
+        )}
         <p className="mb-0 mt-6 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          Montants nets, {VAT_NOTE}. Ce sont ceux que Stripe débite, sans frais ajoutés. Sur Stripe : changer de carte, d’offre ou de rythme de paiement, mettre à jour l’adresse de facturation, résilier.
+          Montants nets, {VAT_NOTE}. Ce sont ceux que Stripe débite, sans frais ajoutés. Sur Stripe : changer de carte (ou passer au prélèvement SEPA), d’offre ou
+          de rythme de paiement, mettre à jour l’adresse de facturation.
         </p>
+        {sub && sub.status !== 'canceled' && !sub.cancel_at_period_end && !sub.cancel_at && (
+          <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            {confirmCancel ? (
+              <div className="flex flex-col gap-3">
+                <p className="m-0 max-w-[620px] text-[0.875rem] leading-[1.55]" style={{ color: 'var(--text-secondary)' }}>
+                  L’abonnement s’arrêtera le <b style={{ color: 'var(--text-primary)' }}>{day(sub.status === 'trialing' ? sub.trial_end : sub.current_period_end)}</b>,
+                  à la fin de la période {sub.status === 'trialing' ? 'd’essai' : 'déjà payée'}, sans autre prélèvement. Après cette date, plus aucun envoi n’est possible et
+                  le tableau de bord est verrouillé. Les documents signés restent téléchargeables (archive annuelle) pour vos obligations de conservation.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant="danger"
+                    disabled={cancelling}
+                    onClick={async () => {
+                      setCancelling(true)
+                      const err = await openCancelSubscription(doctor.id)
+                      if (err) {
+                        setCancelling(false)
+                        showToast(err, 'warning')
+                      }
+                    }}
+                  >
+                    {cancelling ? 'Ouverture…' : 'Continuer vers la résiliation'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmCancel(false)} disabled={cancelling}>
+                    Garder mon abonnement
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(true)}
+                className="cursor-pointer text-[13px] font-semibold"
+                style={{ background: 'none', border: 0, padding: 0, color: 'var(--danger-text)' }}
+              >
+                Résilier mon abonnement
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-[clamp(1.5rem,4vw,32px)]" style={card}>
