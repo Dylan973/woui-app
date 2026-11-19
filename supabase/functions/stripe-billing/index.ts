@@ -25,7 +25,12 @@ Deno.serve(async (req) => {
       stripe.invoices.list({ customer: doctor.stripe_customer_id, limit: 36 }),
     ])
 
+    if (!((customer as { preferred_locales?: string[] }).preferred_locales ?? []).some((l) => l.startsWith('fr'))) {
+      await stripe.customers.update(doctor.stripe_customer_id, { preferred_locales: ['fr-FR', 'fr'] }).catch(() => {})
+    }
+
     let subscription = null
+    let upcoming = null
     if (doctor.stripe_subscription_id) {
       const sub = await stripe.subscriptions.retrieve(doctor.stripe_subscription_id, { expand: ['default_payment_method'] })
       let plan: string | null = null
@@ -58,10 +63,25 @@ Deno.serve(async (req) => {
         cancel_at: sub.cancel_at,
         card: cardOf(sub.default_payment_method) ?? cardOf(custPm),
       }
+      // Prochain prélèvement tel que Stripe le calculera (taxes et crédits compris).
+      if (['active', 'trialing', 'past_due'].includes(sub.status) && !sub.cancel_at_period_end) {
+        try {
+          const next = await stripe.invoices.createPreview({ customer: doctor.stripe_customer_id, subscription: sub.id })
+          upcoming = {
+            amount_due: next.amount_due,
+            subtotal: next.subtotal,
+            tax: (next as unknown as { tax?: number | null }).tax ?? 0,
+            date: next.next_payment_attempt ?? periodEnd,
+          }
+        } catch (error) {
+          console.error('stripe-billing aperçu:', error)
+        }
+      }
     }
 
     return json({
       subscription,
+      upcoming,
       invoices: invoices.data
         .filter((i) => i.status !== 'draft')
         .map((i) => ({
@@ -73,7 +93,17 @@ Deno.serve(async (req) => {
           status: i.status,
           hosted_invoice_url: i.hosted_invoice_url,
           invoice_pdf: i.invoice_pdf,
-          description: i.lines.data[0]?.description ?? null,
+          subtotal: i.subtotal,
+          tax: (i as unknown as { tax?: number | null }).tax ?? 0,
+          billing_reason: i.billing_reason,
+          lines: i.lines.data.map((l) => ({
+            amount: l.amount,
+            quantity: l.quantity,
+            proration: Boolean((l as unknown as { proration?: boolean }).proration),
+            lookup_key: (l as unknown as { price?: { lookup_key?: string | null } }).price?.lookup_key ?? null,
+            period_start: l.period?.start ?? null,
+            period_end: l.period?.end ?? null,
+          })),
         })),
     })
   } catch (error) {

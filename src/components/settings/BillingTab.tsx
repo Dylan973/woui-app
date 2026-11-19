@@ -29,7 +29,39 @@ interface Invoice {
   status: 'open' | 'paid' | 'uncollectible' | 'void' | null
   hosted_invoice_url: string | null
   invoice_pdf: string | null
-  description: string | null
+  subtotal: number
+  tax: number
+  billing_reason: string | null
+  lines: { amount: number; quantity: number | null; proration: boolean; lookup_key: string | null; period_start: number | null; period_end: number | null }[]
+}
+
+interface Upcoming {
+  amount_due: number
+  subtotal: number
+  tax: number
+  date: number | null
+}
+
+type BillingData = { subscription: Subscription | null; upcoming: Upcoming | null; invoices: Invoice[] }
+
+const shortDay = (unix: number | null) => (unix ? new Date(unix * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '')
+
+const isSeat = (key: string | null) => /^woui_clinic_seat_/.test(key ?? '')
+
+/** Objet de la facture, lisible : ce que le cabinet a payé et pour quelle période. */
+function invoiceSubject(inv: Invoice): string {
+  const prorated = inv.lines.filter((l) => l.proration && l.amount > 0)
+  if (prorated.length > 0) {
+    const seats = prorated.filter((l) => isSeat(l.lookup_key))
+    const l = seats[0] ?? prorated[0]
+    const what = seats.length > 0 ? 'Praticien en plus' : 'Changement d’offre'
+    return `${what}, au prorata du ${shortDay(l.period_start)} au ${shortDay(l.period_end)}`
+  }
+  if (inv.total === 0 && inv.billing_reason === 'subscription_create') return 'Début de l’essai gratuit'
+  const l = inv.lines[0]
+  const seats = inv.lines.filter((x) => isSeat(x.lookup_key)).reduce((n, x) => n + (x.quantity ?? 0), 0)
+  const period = l?.period_start ? ` du ${shortDay(l.period_start)} au ${shortDay(l.period_end)}` : ''
+  return `Abonnement${seats ? ` + ${seats} praticien${seats > 1 ? 's' : ''} en plus` : ''}${period}`
 }
 
 const card = { background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 4 }
@@ -51,13 +83,13 @@ const INVOICE_STATUS: Record<string, { label: string; color: string; bg: string 
 
 /** Paramètres > Facturation : abonnement payé en cours et factures Stripe, avec accès au portail Stripe. */
 export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (msg: string, type?: ToastType) => void }) {
-  const [data, setData] = useState<{ subscription: Subscription | null; invoices: Invoice[] } | null>(null)
+  const [data, setData] = useState<BillingData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    void callFunction<{ subscription: Subscription | null; invoices: Invoice[] }>('stripe-billing', {}, { cabinetOf: doctor.id }).then((r) => {
+    void callFunction<BillingData>('stripe-billing', {}, { cabinetOf: doctor.id }).then((r) => {
       if (cancelled) return
       if (r.error || !r.data) setError(r.error ?? 'La facturation est momentanément indisponible.')
       else setData(r.data)
@@ -78,13 +110,19 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
 
   const sub = data?.subscription ?? null
   const plan = PLANS.find((p) => p.id === sub?.plan)
+  const upcoming = data?.upcoming ?? null
+  // Les prix sont affichés comme Stripe les débite : « HT » seulement si une taxe s'y ajoute.
+  const taxed = (upcoming?.tax ?? 0) > 0 || (data?.invoices ?? []).some((i) => i.tax > 0)
   const nextLine = !sub
     ? null
     : sub.cancel_at_period_end || sub.cancel_at
       ? { label: 'Fin de l’abonnement', value: day(sub.cancel_at ?? sub.current_period_end) }
-      : sub.status === 'trialing'
-        ? { label: 'Premier prélèvement', value: day(sub.trial_end) }
-        : { label: 'Prochain prélèvement', value: day(sub.current_period_end) }
+      : {
+          label: sub.status === 'trialing' ? 'Premier prélèvement' : 'Prochain prélèvement',
+          value: upcoming
+            ? `${money(upcoming.amount_due, sub.currency)} le ${day(upcoming.date ?? (sub.status === 'trialing' ? sub.trial_end : sub.current_period_end))}`
+            : day(sub.status === 'trialing' ? sub.trial_end : sub.current_period_end),
+        }
 
   return (
     <div className="flex flex-col gap-[22px]" style={{ animation: 'nb-rise 0.35s var(--ease-standard) both' }}>
@@ -108,7 +146,7 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
         {sub && (
           <dl className="m-0 mt-6 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ['Montant', `${money(sub.amount, sub.currency)} HT / ${sub.interval === 'yearly' ? 'an' : 'mois'}`],
+              ['Montant', `${money(sub.amount, sub.currency)}${taxed ? ' HT' : ''} / ${sub.interval === 'yearly' ? 'an' : 'mois'}`],
               ...(sub.seats > 0 ? [['Praticiens en plus', String(sub.seats)]] : []),
               ...(nextLine ? [[nextLine.label, nextLine.value]] : []),
               [
@@ -128,7 +166,7 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
           </dl>
         )}
         <p className="mb-0 mt-6 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          Sur Stripe : changer de carte, d’offre ou de rythme de paiement, mettre à jour l’adresse de facturation, résilier.
+          Les montants sont ceux que Stripe débite, sans frais ajoutés. Sur Stripe : changer de carte, d’offre ou de rythme de paiement, mettre à jour l’adresse de facturation, résilier.
         </p>
       </div>
 
@@ -153,7 +191,7 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
             <table className="w-full min-w-[560px] border-collapse text-[0.875rem]">
               <thead>
                 <tr>
-                  {['Date', 'Numéro', 'Montant TTC', 'Statut', ''].map((h, i) => (
+                  {['Date', 'Objet', taxed ? 'Montant TTC' : 'Montant', 'Statut', ''].map((h, i) => (
                     <th
                       key={i}
                       className={`pb-3 font-mono text-[10px] font-normal uppercase tracking-[0.12em] ${i === 2 ? 'text-right' : 'text-left'}`}
@@ -172,11 +210,19 @@ export function BillingTab({ doctor, showToast }: { doctor: Doctor; showToast: (
                       <td className="py-3 pr-4" style={{ color: 'var(--text-primary)' }}>
                         {day(inv.created)}
                       </td>
-                      <td className="py-3 pr-4 font-mono text-[12.5px]" style={{ color: 'var(--text-secondary)' }}>
-                        {inv.number ?? '—'}
+                      <td className="py-3 pr-4" style={{ color: 'var(--text-secondary)' }}>
+                        {invoiceSubject(inv)}
+                        <span className="block font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          {inv.number ?? ''}
+                        </span>
                       </td>
                       <td className="py-3 pr-4 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                         {money(inv.total, inv.currency)}
+                        {inv.tax > 0 && (
+                          <span className="block text-[11px] font-normal" style={{ color: 'var(--text-muted)' }}>
+                            dont TVA {money(inv.tax, inv.currency)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 pr-4">
                         <span className="inline-flex rounded-full px-[10px] py-[3px] text-[11px] font-medium" style={{ background: st.bg, color: st.color }}>

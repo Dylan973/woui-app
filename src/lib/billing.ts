@@ -38,8 +38,25 @@ export interface SeatResult {
 }
 
 /** Offre Clinique : ajoute (après paiement) ou retire un praticien supplémentaire. */
-export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string, endTrial = false) =>
-  callFunction<SeatResult>('stripe-seats', { action, end_trial: endTrial }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
+export const changeExtraSeats = (action: 'add' | 'remove', doctorId: string, endTrial = false, prorationDate?: number) =>
+  callFunction<SeatResult>('stripe-seats', { action, end_trial: endTrial, proration_date: prorationDate }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
+
+/** Montants calculés par Stripe avant l'ajout d'une place (centimes). */
+export interface SeatPreview {
+  trialing: boolean
+  /** Débité tout de suite (prorata jusqu'à la fin de la période, ou abonnement complet en fin d'essai). */
+  due_now: number
+  tax_now?: number
+  /** Montant de chaque échéance suivante, place comprise (hors taxes). */
+  recurring: number
+  interval: BillingInterval
+  period_end: number | null
+  /** Date de calcul à renvoyer à l'ajout, pour payer exactement le montant affiché. */
+  proration_date: number
+}
+
+export const previewExtraSeat = (doctorId: string) =>
+  callFunction<SeatPreview>('stripe-seats', { action: 'preview' }, { cabinetOf: doctorId, fallback: PAYMENT_DOWN })
 
 /** Jours d'essai restants (0 si l'essai est terminé, null si le compte n'est pas en essai). */
 export function trialDaysLeft(doctor: Doctor): number | null {

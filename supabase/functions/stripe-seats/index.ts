@@ -11,6 +11,9 @@
 //     l'essai se termine, l'abonnement et la place sont facturés et payés immédiatement
 //     (refusé sans rien modifier si le paiement échoue).
 // Retrait : la place libre est retirée, le prorata est crédité sur la prochaine facture.
+// Aperçu (action 'preview') : montant exact débité aujourd'hui et montant des prochaines échéances,
+// calculés par Stripe ; la date de calcul (proration_date) est renvoyée puis réutilisée à l'ajout,
+// pour que le client paie exactement le montant affiché.
 import {
   admin,
   cabinetAllowed,
@@ -37,8 +40,12 @@ Deno.serve(async (req) => {
     if (!(await cabinetAllowed(req, doctor))) return cabinetLocked()
     if (!doctor.stripe_subscription_id) return json({ error: "Aucun abonnement Clinique n'est actif sur ce compte." }, 400)
 
-    const { action, end_trial } = (await req.json().catch(() => ({}))) as { action?: string; end_trial?: boolean }
-    if (action !== 'add' && action !== 'remove') return json({ error: 'Action invalide' }, 400)
+    const { action, end_trial, proration_date } = (await req.json().catch(() => ({}))) as {
+      action?: string
+      end_trial?: boolean
+      proration_date?: number
+    }
+    if (action !== 'add' && action !== 'remove' && action !== 'preview') return json({ error: 'Action invalide' }, 400)
 
     const sub = await stripe.subscriptions.retrieve(doctor.stripe_subscription_id)
     if (!['active', 'trialing', 'past_due'].includes(sub.status)) return json({ error: "L'abonnement n'est pas actif." }, 400)
@@ -73,6 +80,33 @@ Deno.serve(async (req) => {
     if (!seatPrice) return json({ error: `Prix Stripe introuvable (${seatLookupKey(plan.interval)})` }, 500)
     const items = seatItem ? [{ id: seatItem.id, quantity: current + 1 }] : [{ price: seatPrice.id, quantity: 1 }]
 
+    // Date de calcul du prorata : celle de l'aperçu (moins d'une heure), sinon maintenant.
+    const now = Math.floor(Date.now() / 1000)
+    const prorationDate = proration_date && proration_date <= now && proration_date > now - 3600 ? Math.floor(proration_date) : now
+
+    if (action === 'preview') {
+      const recurring = sub.items.data.reduce((sum, i) => sum + (i.price.unit_amount ?? 0) * (i.quantity ?? 1), 0) + (seatPrice.unit_amount ?? 0)
+      const s = sub as unknown as { current_period_end?: number; items: { data: { current_period_end?: number }[] } }
+      const periodEnd = s.current_period_end ?? s.items.data[0]?.current_period_end ?? null
+      if (sub.status === 'trialing') {
+        return json({ trialing: true, due_now: recurring, recurring, interval: plan.interval, period_end: null, proration_date: prorationDate })
+      }
+      const preview = await stripe.invoices.createPreview({
+        customer: sub.customer as string,
+        subscription: sub.id,
+        subscription_details: { items, proration_behavior: 'always_invoice', proration_date: prorationDate },
+      })
+      return json({
+        trialing: false,
+        due_now: preview.amount_due,
+        tax_now: (preview as unknown as { tax?: number | null }).tax ?? 0,
+        recurring,
+        interval: plan.interval,
+        period_end: periodEnd,
+        proration_date: prorationDate,
+      })
+    }
+
     if (sub.status === 'trialing' && end_trial !== true) {
       // Pendant l'essai, rien ne serait débité : on propose de démarrer l'abonnement maintenant.
       return json({
@@ -82,6 +116,9 @@ Deno.serve(async (req) => {
         interval: plan.interval,
       })
     }
+
+    // Factures et libellés Stripe en français.
+    await stripe.customers.update(sub.customer as string, { preferred_locales: ['fr-FR', 'fr'] }).catch(() => {})
 
     if (sub.status === 'trialing') {
       try {
@@ -105,6 +142,7 @@ Deno.serve(async (req) => {
       const updated = await stripe.subscriptions.update(sub.id, {
         items,
         proration_behavior: 'always_invoice',
+        proration_date: prorationDate,
         payment_behavior: 'pending_if_incomplete',
         expand: ['latest_invoice'],
       })
